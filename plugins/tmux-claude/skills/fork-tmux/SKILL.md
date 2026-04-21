@@ -144,6 +144,8 @@ Forked tmux sessions create files in `/tmp/fork-tmux-status/`:
 
 **Note**: Interactive commands (Claude, Gemini, vim, nvim, nano, htop, top) are auto-detected and run without stdout piping to preserve their TUI interfaces. Status tracking (exit code) still works, but no log file is created.
 
+For Claude commands, the status file also includes `claude_session_id` and `claude_session_file` (path to the JSONL conversation history). These fields are `null` for non-Claude commands.
+
 ### Checking Session Status
 
 ```bash
@@ -155,7 +157,9 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py status <sess
 #   "exit_code": 1,
 #   "completed_at": "1234567890.123",
 #   "session_id": "abc12345",
-#   "log_file": "/tmp/fork-tmux-status/abc12345.log"
+#   "log_file": "/tmp/fork-tmux-status/abc12345.log",
+#   "claude_session_id": "a1b2c3d4-...",
+#   "claude_session_file": "/home/user/.claude/projects/-home-user-project/a1b2c3d4-....jsonl"
 # }
 ```
 

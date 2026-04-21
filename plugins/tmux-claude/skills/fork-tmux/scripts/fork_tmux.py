@@ -8,6 +8,7 @@ polling.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -39,20 +40,60 @@ def _get_script_file(session_id: str) -> Path:
     return STATUS_DIR / f"{session_id}.sh"
 
 
+_CLAUDE_PREFIXES = ("claude ", "claude'", 'claude"')
+
+
 def is_interactive_command(command: str) -> bool:
     """Detect interactive TUI commands that shouldn't have stdout piped."""
     cmd_lower = command.strip().lower()
-    interactive_commands = [
-        "claude ", "claude'", 'claude"',
+    interactive_prefixes = (
+        *_CLAUDE_PREFIXES,
         "gemini ", "gemini'", 'gemini"',
         "vim ", "nvim ", "nano ", "htop", "top",
-    ]
-    return any(cmd_lower.startswith(cmd) for cmd in interactive_commands)
+    )
+    return any(cmd_lower.startswith(p) for p in interactive_prefixes)
+
+
+def _is_claude_command(command: str) -> bool:
+    cmd_lower = command.strip().lower()
+    return any(cmd_lower.startswith(p) for p in _CLAUDE_PREFIXES)
+
+
+def _inject_claude_session_id(
+    command: str, cwd: str,
+) -> tuple[str, str | None, str | None]:
+    """Inject or extract --session-id for Claude commands.
+
+    Returns (command, claude_session_id, claude_session_file).
+    """
+    if not _is_claude_command(command):
+        return (command, None, None)
+
+    match = re.search(
+        r"--session-id\s+([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+        command,
+    )
+    if match:
+        session_id = match.group(1)
+    else:
+        session_id = str(uuid.uuid4())
+        parts = command.split(" ", 1)
+        rest = parts[1] if len(parts) > 1 else ""
+        command = f"{parts[0]} --session-id {session_id} {rest}".rstrip()
+
+    project_dir = "-" + cwd.strip("/").replace("/", "-")
+    home = os.path.expanduser("~")
+    session_file = str(
+        Path(home) / ".claude" / "projects" / project_dir / f"{session_id}.jsonl"
+    )
+
+    return (command, session_id, session_file)
 
 
 def _build_wrapped_command(
     command: str, cwd: str, session_id: str, track_status: bool, is_interactive: bool,
     window_name: str = None,
+    claude_session_id: str = None, claude_session_file: str = None,
 ) -> str:
     """Write a wrapper shell script and return its path.
 
@@ -76,28 +117,41 @@ def _build_wrapped_command(
                     "log_file": str(log_file) if not is_interactive else None,
                     "interactive": is_interactive,
                     "window_name": window_name,
+                    "claude_session_id": claude_session_id,
+                    "claude_session_file": claude_session_file,
                 },
                 f,
             )
+
+        claude_fields = ""
+        if claude_session_id:
+            claude_fields = (
+                f', "claude_session_id": "{claude_session_id}"'
+                f', "claude_session_file": "{claude_session_file}"'
+            )
+
+        unset_claude = "unset CLAUDECODE\n" if claude_session_id else ""
 
         if is_interactive:
             script_content = (
                 f"#!/bin/bash\n"
                 f"cd '{cwd}'\n"
+                f"{unset_claude}"
                 f"{command}\n"
                 f"EXIT_CODE=$?\n"
                 f"printf '{{\"status\": \"completed\", \"exit_code\": %d, "
-                f"\"completed_at\": %s}}' \"$EXIT_CODE\" \"$(date +%s.%N)\" "
+                f"\"completed_at\": %s{claude_fields}}}' \"$EXIT_CODE\" \"$(date +%s.%N)\" "
                 f"> '{status_file}'\n"
             )
         else:
             script_content = (
                 f"#!/bin/bash\n"
                 f"cd '{cwd}'\n"
+                f"{unset_claude}"
                 f"{{ {command}; }} 2>&1 | tee '{log_file}'\n"
                 f"EXIT_CODE=${{PIPESTATUS[0]}}\n"
                 f"printf '{{\"status\": \"completed\", \"exit_code\": %d, "
-                f"\"completed_at\": %s}}' \"$EXIT_CODE\" \"$(date +%s.%N)\" "
+                f"\"completed_at\": %s{claude_fields}}}' \"$EXIT_CODE\" \"$(date +%s.%N)\" "
                 f"> '{status_file}'\n"
             )
     else:
@@ -132,6 +186,11 @@ def fork_tmux(command: str, track_status: bool = True, cwd: str = None,
     if cwd is None:
         cwd = os.getcwd()
     session_id = str(uuid.uuid4())[:8]
+
+    command, claude_session_id, claude_session_file = _inject_claude_session_id(
+        command, cwd,
+    )
+
     is_interactive = is_interactive_command(command)
     window_name = name if name else (command.split()[0] if command.strip() else "fork")
 
@@ -139,6 +198,8 @@ def fork_tmux(command: str, track_status: bool = True, cwd: str = None,
         script_path = _build_wrapped_command(
             command, cwd, session_id, track_status, is_interactive,
             window_name=window_name,
+            claude_session_id=claude_session_id,
+            claude_session_file=claude_session_file,
         )
 
         subprocess.Popen(
@@ -157,6 +218,8 @@ def fork_tmux(command: str, track_status: bool = True, cwd: str = None,
             "command": command,
             "status_file": str(status_file) if status_file else None,
             "log_file": str(log_file) if log_file else None,
+            "claude_session_id": claude_session_id,
+            "claude_session_file": claude_session_file,
         }
         if is_interactive:
             result["interactive"] = True

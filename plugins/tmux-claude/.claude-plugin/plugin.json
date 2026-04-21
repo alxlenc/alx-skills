@@ -1,7 +1,7 @@
 {
   "name": "tmux-claude",
   "description": "Drive tmux from Claude Code — split panes, open windows, send commands, read output — plus fork-tmux for tracked tmux-window forks (Claude-session forking, rewind), handoff for continuing a long conversation in a fresh Claude session, and an opinionated tmux.conf + plugin set.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Alejandro Serna Borja",
     "email": "alxlenc@users.noreply.github.com"
