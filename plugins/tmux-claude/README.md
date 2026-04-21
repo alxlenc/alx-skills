@@ -13,7 +13,7 @@ All skills require an active tmux session (`$TMUX`). See [`USAGE_PATTERNS.md`](U
 ## Install
 
 ```bash
-/plugin marketplace add <path-or-github>/alx-skills
+/plugin marketplace add alxlenc/alx-skills
 /plugin install tmux-claude@alx-skills
 ```
 
