@@ -25,7 +25,7 @@ Opinionated tmux configuration that pairs with the `tmux` skill in this plugin.
 
 Merging is idempotent — re-running the installer dedupes itself, leaves unrelated hooks untouched, and creates `~/.claude/settings.json` if it doesn't exist.
 
-Hooks are loaded when a Claude session starts, so if you ran `/tmux-claude-install-dotfiles` from inside Claude, **restart Claude** for them to take effect.
+Hooks are loaded when a Claude session starts, so **restart Claude** after running `install.sh` for them to take effect.
 
 ## Dependencies
 
@@ -41,15 +41,8 @@ Hooks are loaded when a Claude session starts, so if you ran `/tmux-claude-insta
 ## Install
 
 ```bash
-./install.sh                 # full turnkey: config + scripts + plugins + Claude hooks
-./install.sh --no-hooks      # skip the Claude settings.json hook setup
-```
-
-Or from Claude Code, after installing the plugin:
-
-```
-/tmux-claude-install-dotfiles
-/tmux-claude-install-dotfiles --no-hooks
+bash dotfiles/install.sh              # full turnkey: config + scripts + plugins + Claude hooks
+bash dotfiles/install.sh --no-hooks   # skip the Claude settings.json hook setup
 ```
 
 ## Uninstall

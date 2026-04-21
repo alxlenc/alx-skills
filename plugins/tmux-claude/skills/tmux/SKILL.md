@@ -7,7 +7,7 @@ description: Manage tmux panes and windows — split, close, send commands, read
 
 Manage tmux panes (splits within a window) and windows (tabs). Requires an active tmux session (`$TMUX` must be set).
 
-**Companion dotfiles:** This plugin ships an opinionated `tmux.conf` plus two plugins at `${CLAUDE_PLUGIN_ROOT}/dotfiles/` (Catppuccin theme, vi copy mode, prefix + `o` to open file paths, agent-indicator, clipboard-image paste). Install with `bash ${CLAUDE_PLUGIN_ROOT}/dotfiles/install.sh` — or run the `/tmux-claude-install-dotfiles` command from this plugin.
+**Companion dotfiles:** This plugin ships an opinionated `tmux.conf` plus two plugins at `${CLAUDE_PLUGIN_ROOT}/dotfiles/` (Catppuccin theme, vi copy mode, prefix + `o` to open file paths, agent-indicator, clipboard-image paste). Install with `bash ${CLAUDE_PLUGIN_ROOT}/dotfiles/install.sh`.
 
 **Pane vs Window:** A *pane* is a split within the current view (side-by-side or stacked). A *window* is a separate full-screen tab. When the user says "new window", "new tab", or "open a window", use `window-new`. When they say "split", "side panel", or "new pane", use `split`.
 
