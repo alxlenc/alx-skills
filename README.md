@@ -13,11 +13,7 @@ More plugins will be added here over time. Each plugin lives under `plugins/<nam
 ## Install this marketplace
 
 ```bash
-# From a local checkout
-/plugin marketplace add <path-to-this-repo>
-
-# Or from GitHub once published
-/plugin marketplace add <github-user>/alx-skills
+/plugin marketplace add alxlenc/alx-skills
 ```
 
 Then install individual plugins from the table above.
