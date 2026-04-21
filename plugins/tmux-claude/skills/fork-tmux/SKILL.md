@@ -37,7 +37,24 @@ ENABLE_SESSION_FORK: true
 2. READ: `${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py` to understand the tooling.
 3. **MANDATORY**: Follow the `Cookbook` section below to determine which recipe applies.
 4. **MANDATORY**: Read the cookbook file specified in the matching recipe.
-5. Execute `fork_tmux.py fork` using the syntax from the cookbook, adding `--cwd <path>` if a working directory was specified.
+5. Execute `fork_tmux.py fork` using the syntax from the cookbook, adding `--cwd <path>` if a working directory was specified and `--name <name>` following the Window Naming rules below.
+
+### Window Naming
+
+**Always** pass `--name` when invoking `fork_tmux.py fork`. If the user specified a name, use it. Otherwise, generate a short, descriptive name from the task context:
+
+- **2-4 words**, kebab-case (e.g., `style-review`, `quiz-gen`, `deploy-staging`)
+- Describe the **task**, not the binary (e.g., `lecture-update` not `claude`, `build-images` not `npm`)
+- Keep it under 20 characters so it fits in the tmux status bar
+
+Examples:
+| User request | `--name` |
+|---|---|
+| "fork tmux to run the tests" | `run-tests` |
+| "fork with claude to review the PR" | `pr-review` |
+| "fork to run npm install" | `npm-install` |
+| "fork session to fix the style violations" | `fix-style` |
+| "fork tmux with gemini to analyze the logs" | `log-analysis` |
 
 ### Working Directory Detection
 
