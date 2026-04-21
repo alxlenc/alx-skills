@@ -22,15 +22,14 @@ Then install individual plugins from the table above.
 
 ```
 alx-skills/
-├── .claude-plugin/marketplace.json   # marketplace manifest
+├── .claude-plugin/marketplace.json
 └── plugins/
     └── <plugin-name>/
         ├── .claude-plugin/plugin.json
         ├── README.md
-        ├── skills/
-        ├── commands/     # optional
-        ├── scripts/      # optional, shared across the plugin's skills
-        └── dotfiles/     # optional
+        ├── skills/       # skill definitions (SKILL.md + helpers)
+        ├── scripts/      # shared scripts across the plugin's skills
+        └── dotfiles/     # optional config files + install script
 ```
 
 ## License
