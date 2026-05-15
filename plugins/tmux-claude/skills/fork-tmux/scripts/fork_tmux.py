@@ -9,6 +9,7 @@ polling.
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -100,7 +101,7 @@ def _build_wrapped_command(
     Using a file avoids shell-metacharacter issues from embedding commands
     into `bash -c` strings. Also writes the initial status file if tracking.
     """
-    STATUS_DIR.mkdir(parents=True, exist_ok=True)
+    STATUS_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     script_file = _get_script_file(session_id)
 
     if track_status:
@@ -135,7 +136,7 @@ def _build_wrapped_command(
         if is_interactive:
             script_content = (
                 f"#!/bin/bash\n"
-                f"cd '{cwd}'\n"
+                f"cd {shlex.quote(cwd)}\n"
                 f"{unset_claude}"
                 f"{command}\n"
                 f"EXIT_CODE=$?\n"
@@ -146,7 +147,7 @@ def _build_wrapped_command(
         else:
             script_content = (
                 f"#!/bin/bash\n"
-                f"cd '{cwd}'\n"
+                f"cd {shlex.quote(cwd)}\n"
                 f"{unset_claude}"
                 f"{{ {command}; }} 2>&1 | tee '{log_file}'\n"
                 f"EXIT_CODE=${{PIPESTATUS[0]}}\n"
@@ -157,7 +158,7 @@ def _build_wrapped_command(
     else:
         script_content = (
             f"#!/bin/bash\n"
-            f"cd '{cwd}'\n"
+            f"cd {shlex.quote(cwd)}\n"
             f"{command}\n"
         )
 

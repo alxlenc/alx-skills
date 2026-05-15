@@ -153,7 +153,7 @@ if ! command -v curl >/dev/null 2>&1; then
     echo "  ERROR: curl is required to install tmux-agent-indicator. Install curl and re-run." >&2
     exit 1
 fi
-curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda63be1f38efe40528c90c6076a589051df8/install.sh \
     | bash -s -- "${AGENT_INSTALLER_ARGS[@]}"
 
 echo "==> tmux-paste-image"
