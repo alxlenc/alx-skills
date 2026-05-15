@@ -52,14 +52,24 @@ link() {
 }
 
 clone_or_update() {
-    local repo="$1" dst="$2"
+    local repo="$1" dst="$2" pin="${3:-}"
     if [ -d "$dst/.git" ]; then
-        echo "  update: $dst"
-        git -C "$dst" pull --ff-only --quiet
+        if [ -n "$pin" ]; then
+            echo "  pinned: $dst @ ${pin:0:12}"
+            git -C "$dst" fetch --quiet origin
+            git -C "$dst" checkout --quiet "$pin"
+        else
+            echo "  update: $dst"
+            git -C "$dst" pull --ff-only --quiet
+        fi
     else
         echo "  clone:  $repo -> $dst"
         mkdir -p "$(dirname "$dst")"
-        git clone --quiet --depth 1 "$repo" "$dst"
+        git clone --quiet "$repo" "$dst"
+        if [ -n "$pin" ]; then
+            git -C "$dst" checkout --quiet "$pin"
+            echo "  pinned: @ ${pin:0:12}"
+        fi
     fi
 }
 
@@ -157,7 +167,8 @@ curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda
     | bash -s -- "${AGENT_INSTALLER_ARGS[@]}"
 
 echo "==> tmux-paste-image"
-clone_or_update "https://github.com/jkhas8/tmux-paste-image.git" "$HOME/.tmux/plugins/tmux-paste-image"
+clone_or_update "https://github.com/jkhas8/tmux-paste-image.git" "$HOME/.tmux/plugins/tmux-paste-image" \
+    "be6ae115fb85347d2d5b986c789fe28604f448e6"
 check_clipboard_tool
 
 check_legacy_tmux_conf

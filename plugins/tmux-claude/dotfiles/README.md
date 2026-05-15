@@ -51,7 +51,7 @@ Remove the hooks and files:
 
 ```bash
 # Remove Claude hooks
-curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda63be1f38efe40528c90c6076a589051df8/install.sh \
     | bash -s -- --uninstall-claude --no-codex --no-opencode
 
 # Remove config + plugins
