@@ -1,6 +1,6 @@
 # `tmux-claude` Usage Patterns
 
-Workflow recipes that compose the plugin's three skills (`tmux`, `fork-tmux`, `handoff`). Nothing here is wired as automation — these are mental models for what a Claude-driven tmux unlocks once the pieces are in place. Invoke them conversationally; the skills sequence the actual tmux commands.
+Workflow recipes that compose the plugin's four skills (`tmux`, `fork-tmux`, `handoff`, `controller`). Nothing here is wired as automation — these are mental models for what a Claude-driven tmux unlocks once the pieces are in place. Invoke them conversationally; the skills sequence the actual tmux commands.
 
 Each pattern ends with a context-flow diagram. Colour legend used throughout:
 
@@ -107,6 +107,34 @@ flowchart TB
     style F2 fill:#fff3e0
     style F3 fill:#fff3e0
     style FN fill:#fff3e0
+```
+
+## Supervise a fleet of Claude windows (controller)
+
+When several Claude windows are each grinding on their own task, a dedicated **controller** window keeps them unblocked so you don't babysit the tmux session yourself. The controller arms a backgrounded watcher (`watch_windows.sh @50 @53 …`) over the worker window ids; the watcher is the only thing that spins, firing a single `ATTENTION <name> (@id): IDLE | QUESTION | IDLE_HIGH | GONE` line the moment a worker reaches a point that needs a human-shaped decision. On that event the controller `read`s the pane and acts — answers the question with the best option, hands the worker its next high-impact step, `/compact`s it before it runs out of context, or coordinates a cross-window git merge — then re-arms the watcher and goes back to sleep. Only genuinely-user calls (real money, decisions that need real data) get surfaced up; everything routine the controller resolves itself.
+
+**Context:** unlike the fork patterns, the workers are independent Claude sessions the controller never forked and whose context it never inherits — it sees only what it `read`s off each pane and steers them only by `send`ing messages that land as ordinary user input. What the controller adds is the *cross-window vantage* no single worker has (e.g. "don't merge that branch — another window holds it dirty"). High-context is handled by a commit → `/compact` → self-contained-resume handshake, and the watcher fires `IDLE_HIGH` only at a clean stop, so a compaction never strands uncommitted work. The watcher itself holds no conversation state — it's a plain shell loop.
+
+```mermaid
+flowchart TB
+    U["You<br/>genuinely-user calls only"]
+    C["Controller Claude<br/>cross-window vantage"]
+    Wch["watcher loop<br/>plain shell, no Claude"]
+    subgraph Fleet["worker windows — independent Claude sessions"]
+        direction LR
+        W1["@50<br/>own context + task"]
+        W2["@53<br/>own context + task"]
+    end
+    C -->|arm over @ids| Wch
+    Wch -.->|"ATTENTION @id:<br/>IDLE · QUESTION ·<br/>IDLE_HIGH · GONE"| C
+    C <-->|"read + send<br/>(answer · next step · /compact)"| W1
+    C <-->|read + send| W2
+    C -.->|surface, don't bake| U
+    style U fill:#ffecb3
+    style C fill:#e3f2fd
+    style Wch fill:#f5f5f5
+    style W1 fill:#e3f2fd
+    style W2 fill:#e3f2fd
 ```
 
 ## Rewind after a dead-end refactor
