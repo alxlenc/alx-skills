@@ -7,7 +7,7 @@ Drive tmux from Claude Code — split panes, open windows, run commands, read ou
 - **tmux** — manage panes and windows (`split`, `close`, `send`, `read`, `resize`, `focus`, `zoom`, `window-new`, `window-close`, `window-select`, `window-list`, `window-rename`).
 - **fork-tmux** — fork a tracked tmux window with lifecycle management, session forking, and rewind support.
 - **handoff** — continue a long conversation in a fresh Claude session with full context preservation.
-- **controller** — supervise other Claude windows: watch each for idle / questions / high-context, answer their questions, pick the next high-impact step, `/compact` them before they run out, and coordinate cross-window git merges.
+- **controller** — put one Claude in charge of several others so a fleet of windows keeps moving unattended: it watches each worker for idle / a pending question / high context, answers the routine ones, hands over the next step, `/compact`s a window before it runs out, and coordinates cross-window git merges.
 
 All skills require an active tmux session (`$TMUX`). See [`USAGE_PATTERNS.md`](USAGE_PATTERNS.md) for composed workflows.
 
