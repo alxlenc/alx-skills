@@ -12,7 +12,7 @@
     {
       "name": "tmux-claude",
       "source": "./plugins/tmux-claude",
-      "description": "Drive tmux from Claude Code — split panes, open windows, send commands, read output — plus fork-tmux for forking tracked tmux windows with status/log/wait helpers (and Claude-session forking with full context), handoff for continuing a long conversation in a fresh Claude session, and an opinionated tmux.conf + plugin set that install into your home."
+      "description": "Drive tmux from Claude Code — split panes, open windows, send commands, read output — plus fork-tmux for forking tracked tmux windows with status/log/wait helpers (and Claude-session forking with full context), handoff for continuing a long conversation in a fresh Claude session, controller for supervising other Claude windows (watch for idle/questions/high-context, answer them, /compact, coordinate merges), and an opinionated tmux.conf + plugin set that install into your home."
     }
   ]
 }
