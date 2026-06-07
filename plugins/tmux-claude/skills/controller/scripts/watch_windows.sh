@@ -47,12 +47,17 @@ classify() {
   txt=$(python3 "$PANES" read -t "$w" 2>/dev/null | tail -n 30)
   [ -z "$txt" ] && { echo GONE; return; }
   # 1) BUSY first — match ONLY unambiguous live-spinner signals: the interrupt
-  #    hint, compaction, or the spinner's "↓ <n> tokens" / "↑ <n> tokens" counter
+  #    hint, compaction, the spinner's "↓ <n> tokens" / "↑ <n> tokens" counter
   #    (a leading space + literal "tokens" distinguishes it from the idle status
-  #    line's "[↓0k ↑0k]" totals). Deliberately NOT the elapsed "(Xs)" paren or the
-  #    "ctrl+o to expand" collapsed-block hint: both linger on a FINISHED screen and
-  #    would strand an idle window as permanent false-BUSY (the streak never fires).
-  if printf '%s\n' "$txt" | grep -qE 'esc to interrupt|Compacting|[↓↑] [0-9][0-9.,kKmM]* tokens'; then
+  #    line's "[↓0k ↑0k]" totals), OR the active spinner's ellipsis-anchored elapsed
+  #    "… (Ns)" / "… (Nm Ns)". The token counter is INTERMITTENT (absent early in a
+  #    think phase), which stranded a thinking window as false-IDLE; the "… (Ns)" is
+  #    present every frame the spinner runs. The ellipsis anchor is what keeps it
+  #    safe: a FINISHED line reads "<Verb> for Xm Ys" (no parens) and the idle status
+  #    elapsed lives inside "[…⏱4h7m]" brackets — neither has "… (". Deliberately
+  #    still NOT a BARE "(Xs)" paren or the "ctrl+o to expand" collapsed-block hint:
+  #    those linger on a finished screen and would re-introduce a false-BUSY strand.
+  if printf '%s\n' "$txt" | grep -qE 'esc to interrupt|Compacting|[↓↑] [0-9][0-9.,kKmM]* tokens|…[ ]?\([0-9]+[ms]'; then
     echo BUSY; return
   fi
   # 2) A pending interactive question (numbered selector / y-n / AskUserQuestion).
