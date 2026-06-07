@@ -46,8 +46,13 @@ classify() {
   local w="$1" txt pct
   txt=$(python3 "$PANES" read -t "$w" 2>/dev/null | tail -n 30)
   [ -z "$txt" ] && { echo GONE; return; }
-  # 1) BUSY first — generation, a running tool, the interrupt hint, or compaction.
-  if printf '%s\n' "$txt" | grep -qE 'esc to interrupt|Compacting|\([0-9]+m [0-9]+s|\([0-9]+s|thought for|to expand'; then
+  # 1) BUSY first — match ONLY unambiguous live-spinner signals: the interrupt
+  #    hint, compaction, or the spinner's "↓ <n> tokens" / "↑ <n> tokens" counter
+  #    (a leading space + literal "tokens" distinguishes it from the idle status
+  #    line's "[↓0k ↑0k]" totals). Deliberately NOT the elapsed "(Xs)" paren or the
+  #    "ctrl+o to expand" collapsed-block hint: both linger on a FINISHED screen and
+  #    would strand an idle window as permanent false-BUSY (the streak never fires).
+  if printf '%s\n' "$txt" | grep -qE 'esc to interrupt|Compacting|[↓↑] [0-9][0-9.,kKmM]* tokens'; then
     echo BUSY; return
   fi
   # 2) A pending interactive question (numbered selector / y-n / AskUserQuestion).
