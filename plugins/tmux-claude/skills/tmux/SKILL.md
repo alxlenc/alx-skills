@@ -188,6 +188,27 @@ Examples:
 
 This convention mirrors the fork-tmux skill's fork-session recipe — the slug goes on both the tmux handle and the Claude CLI so the two identifiers stay in sync. See also the `fork-tmux` skill in this plugin (`skills/fork-tmux/cookbook/claude-code-fork-session.md`).
 
+## Codex Launch Convention
+
+When launching OpenAI Codex CLI in a new pane or window to delegate a task, default to YOLO mode:
+
+```bash
+codex --yolo -- '<prompt>'         # interactive TUI — pane/window stays open for follow-ups
+codex exec --yolo -- '<prompt>'    # headless — runs to completion and exits
+```
+
+`--yolo` (alias for `--dangerously-bypass-approvals-and-sandbox`) auto-approves every action with no sandbox; the `--` is mandatory so flag-like text in the prompt isn't parsed as codex options. Codex has no `--name` flag, so the slug goes only on the tmux handle: derive it like the Claude convention above but prefix with `codex-`.
+
+| User request | Invocation |
+|---|---|
+| "split pane with codex to fix the tests" | `split horizontal "codex --yolo -- 'Fix the failing tests; done when the suite passes'"` |
+| "new window with codex to review PR 42" | `window-new -n codex-review-pr "codex --yolo -- 'Review PR 42 and leave feedback'"` |
+| "send a codex task to window @3" | `send -f /tmp/p.txt -p "codex --yolo --" -t @3` |
+
+**Trust prompt:** in a directory codex hasn't seen before, it shows a one-time "Do you trust the contents of this directory?" prompt even in YOLO mode. After launching, `read` the pane; if the prompt is showing, accept it with `send "C-m" -t <target> --no-enter` ("Yes, continue" is preselected).
+
+For a tracked fork (status file, wait/cleanup), use the `fork-tmux` skill's codex recipe instead (`skills/fork-tmux/cookbook/codex.md`). YOLO mode executes whatever the model decides without asking — only delegate tasks you'd run unattended in that directory.
+
 ## Workflow
 
 1. **Check environment**: Verify `$TMUX` is set before any operation.

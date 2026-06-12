@@ -50,6 +50,25 @@ flowchart LR
     style Fork fill:#ffecb3
 ```
 
+## Delegate a task to a YOLO Codex window
+
+Hand a well-scoped task to a different model entirely: fork a window running `codex --yolo -- '<task>'` and let OpenAI Codex work it autonomously while the main Claude keeps the conversation. Useful for second opinions, parallel implementation attempts, or burning mechanical work on a separate quota. Interactive by default — the window stays open for follow-ups; use `codex exec --yolo` for fire-and-forget with a captured log. Check in later via `fork_tmux.py status <id>` or by reading the pane.
+
+**Context:** the parent Claude context is untouched; Codex builds its own context from the prompt plus the repo. Nothing merges back automatically — the parent reads the pane, the log file, or the resulting diff.
+
+```mermaid
+flowchart LR
+    P["Parent Claude<br/>conversation context"]
+    P -->|fork-tmux| W[new tmux window]
+    W --> X["Codex YOLO<br/>own agent context"]
+    X --> Out[(diff in repo<br/>+ pane output / log)]
+    Out -.->|parent reads<br/>when done| P
+    style P fill:#e3f2fd
+    style W fill:#f5f5f5
+    style X fill:#f5f5f5
+    style Out fill:#fff9c4
+```
+
 ## Multi-service dev layout as a one-shot prompt
 
 Ask Claude to compose a whole layout in a single turn: `window-new` for the API server, `split horizontal` for a DB console, another split for a metrics/log tail, then `focus` back to the editing pane. The `tmux` skill just sequences the tmux commands — you reload the same layout tomorrow by re-invoking the same prompt, which is often faster than maintaining a static tmux resurrect config.

@@ -47,9 +47,13 @@ _CLAUDE_PREFIXES = ("claude ", "claude'", 'claude"')
 def is_interactive_command(command: str) -> bool:
     """Detect interactive TUI commands that shouldn't have stdout piped."""
     cmd_lower = command.strip().lower()
+    # `codex exec` (alias `codex e`) is headless — keep log capture for it
+    if cmd_lower.startswith(("codex exec", "codex e ")):
+        return False
     interactive_prefixes = (
         *_CLAUDE_PREFIXES,
         "gemini ", "gemini'", 'gemini"',
+        "codex ", "codex'", 'codex"',
         "vim ", "nvim ", "nano ", "htop", "top",
     )
     return any(cmd_lower.startswith(p) for p in interactive_prefixes)
