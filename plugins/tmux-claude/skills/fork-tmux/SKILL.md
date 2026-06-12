@@ -1,6 +1,6 @@
 ---
 name: fork-tmux
-description: Fork a new tmux window that runs a command with status tracking, log capture, and wait-for-completion polling. Use when the user requests 'fork tmux', 'fork a window', 'fork to run X', 'side task: <task>', 'fork session', 'fork this session', 'rewind session', 'rewind to', or wants to delegate a task to Claude, Gemini, or Codex (YOLO) in a new tmux window. Requires an active tmux session ($TMUX). Supports forking the current Claude session with full context preservation, and rewinding to a previous conversation state. Prefer the `tmux` skill's `window-new` for lightweight fire-and-forget window creation; use fork-tmux when you need a tracked session.
+description: "Fork a new tmux window that runs a command with status tracking, log capture, and wait-for-completion polling. Use when the user requests 'fork tmux', 'fork a window', 'fork to run X', 'side task: <task>', 'fork session', 'fork this session', 'rewind session', 'rewind to', or wants to delegate a task to Claude, Gemini, or Codex (YOLO) in a new tmux window. Requires an active tmux session ($TMUX). Supports forking the current Claude session with full context preservation, and rewinding to a previous conversation state. Prefer the `tmux` skill's `window-new` for lightweight fire-and-forget window creation; use fork-tmux when you need a tracked session."
 ---
 
 # Purpose
@@ -20,6 +20,16 @@ ENABLE_CLAUDE_CODE: true
 ENABLE_GEMINI_CLI: true
 ENABLE_CODEX: true
 ENABLE_SESSION_FORK: true
+WINDOW_MODE: ${user_config.window_mode}
+
+### WINDOW_MODE — YOLO vs CHICKEN
+
+`WINDOW_MODE` (plugin user config, set via `/plugin` → tmux-claude → configure) decides whether delegated agent windows auto-approve actions:
+
+- **YOLO** — include the bypass flag in the agent command: `claude --dangerously-skip-permissions`, `codex --yolo`, `gemini -y`.
+- **CHICKEN** — omit that flag so the window keeps its normal permission/approval prompts.
+
+Resolution order: explicit request wording ("safe window", "with permissions" → CHICKEN; "yolo", "dangerously" → YOLO) **beats** WINDOW_MODE. If WINDOW_MODE is anything other than `CHICKEN` — including blank or an unsubstituted `${...}` placeholder — treat it as YOLO. Apply this when executing any agent cookbook below; the cookbook examples show the YOLO form.
 
 ## Requirements
 

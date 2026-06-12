@@ -1,9 +1,17 @@
 {
   "name": "tmux-claude",
   "description": "Drive tmux from Claude Code — split panes, open windows, send commands, read output — plus fork-tmux for tracked tmux-window forks (Claude-session forking, rewind, YOLO Codex/Gemini delegation windows), handoff for continuing a long conversation in a fresh Claude session, controller for supervising other Claude windows (watch, answer, compact, coordinate merges), and an opinionated tmux.conf + plugin set.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": {
     "name": "Alejandro Serna Borja",
     "email": "alxlenc@users.noreply.github.com"
+  },
+  "userConfig": {
+    "window_mode": {
+      "type": "string",
+      "title": "Delegated window mode (YOLO/CHICKEN)",
+      "description": "Default permission mode for delegated agent windows and panes. YOLO = auto-approve everything (claude --dangerously-skip-permissions, codex --yolo, gemini -y). CHICKEN = keep permission/approval prompts. Per-request wording (\"safe window\", \"yolo window\") still overrides.",
+      "default": "YOLO"
+    }
   }
 }

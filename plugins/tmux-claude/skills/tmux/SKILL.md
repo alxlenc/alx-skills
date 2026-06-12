@@ -170,6 +170,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tmux_panes.py window-rename "new-name" -t 
 
 When launching `claude` in a new pane or window (via `split`, `window-new`, or `send -p`), **always** pass `--name <slug>` to the claude command so the Claude session is named — it appears in the prompt box, `/resume` picker, and terminal title. For `window-new`, use the **same slug** as the window name (`-n <slug>`) so the window and Claude session are correlatable.
 
+Delegated panes/windows follow the plugin's `window_mode` user config (current value: `${user_config.window_mode}`): **YOLO** → include `--dangerously-skip-permissions`; **CHICKEN** → omit it. Explicit request wording ("safe window" / "yolo window") beats the config; any value other than `CHICKEN` (including an unsubstituted placeholder) means YOLO.
+
 **If the user specified a name** ("call it X", "name it X", "as 'X'"): use their value verbatim (lowercase + hyphenated, non-alphanumeric stripped).
 
 **Otherwise, auto-derive** from the task prompt:
@@ -182,15 +184,15 @@ Examples:
 
 | User request | Slug | Invocation |
 |---|---|---|
-| "split pane with claude to run the migration" | `claude-run-migration` | `split horizontal "claude --name claude-run-migration -- 'Run the migration and verify rows'"` |
-| "new window with claude to review PR 42" | `claude-review-pr` | `window-new -n claude-review-pr "claude --name claude-review-pr -- 'Review PR 42 and leave feedback'"` |
+| "split pane with claude to run the migration" | `claude-run-migration` | `split horizontal "claude --name claude-run-migration --dangerously-skip-permissions -- 'Run the migration and verify rows'"` |
+| "new window with claude to review PR 42" | `claude-review-pr` | `window-new -n claude-review-pr "claude --name claude-review-pr --dangerously-skip-permissions -- 'Review PR 42 and leave feedback'"` |
 | "send a claude prompt to window @3 to fix the tests" | `claude-fix-tests` | `send -f /tmp/p.txt -p "claude --name claude-fix-tests --dangerously-skip-permissions --" -t @3` |
 
 This convention mirrors the fork-tmux skill's fork-session recipe — the slug goes on both the tmux handle and the Claude CLI so the two identifiers stay in sync. See also the `fork-tmux` skill in this plugin (`skills/fork-tmux/cookbook/claude-code-fork-session.md`).
 
 ## Codex Launch Convention
 
-When launching OpenAI Codex CLI in a new pane or window to delegate a task, default to YOLO mode:
+When launching OpenAI Codex CLI in a new pane or window to delegate a task, apply the same `window_mode` config as the Claude convention above — YOLO (the default) uses `--yolo`; CHICKEN omits it (codex then keeps its sandbox + approval prompts):
 
 ```bash
 codex --yolo -- '<prompt>'         # interactive TUI — pane/window stays open for follow-ups

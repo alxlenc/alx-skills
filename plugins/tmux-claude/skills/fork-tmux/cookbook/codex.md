@@ -23,7 +23,7 @@ codex -i -- 'task'                # ❌ -i attaches an image file; it does not m
 codex chat -- 'task'              # ❌ no such subcommand
 ```
 
-**Why `--yolo`:** alias for `--dangerously-bypass-approvals-and-sandbox` — skips all approval prompts and disables sandboxing, which is what makes the window fully autonomous. For a safer window (writes confined to the workspace, still no prompts) use `--sandbox workspace-write --ask-for-approval never` instead.
+**Why `--yolo`:** alias for `--dangerously-bypass-approvals-and-sandbox` — skips all approval prompts and disables sandboxing, which is what makes the window fully autonomous. When `WINDOW_MODE` is CHICKEN (see SKILL.md Variables) or the user asks for a safe window, omit `--yolo` — codex then keeps its sandbox and approval prompts. A middle ground (writes confined to the workspace, still no prompts) is `--sandbox workspace-write --ask-for-approval never`.
 
 **Why `--` is required:** the double-dash signals end-of-options. Without it, any `--word` inside the prompt is parsed as a codex CLI option and errors with `unexpected argument`.
 

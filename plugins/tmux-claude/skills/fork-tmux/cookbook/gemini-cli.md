@@ -50,7 +50,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py fork "gemini
 **Notes:**
 - The `fork` subcommand is required when using `fork_tmux.py` from CLI.
 - Use `--cwd` to specify a different working directory (defaults to current directory).
-- Always include `-y` (yolo mode) to auto-accept tool actions.
+- Include `-y` (yolo mode) to auto-accept tool actions — unless `WINDOW_MODE` is CHICKEN (see SKILL.md Variables) or the user asks for a safe window.
 - Always use `-i` for interactive mode (continues after prompt execution).
 
 ## Examples
@@ -65,6 +65,6 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py fork "gemini
 
 - The prompt should be wrapped in single quotes inside double quotes: `"gemini ... -i 'prompt'"`
 - The `-i` flag must come last, immediately before the prompt.
-- Always include `-y` for yolo mode to auto-accept actions.
+- Include `-y` for yolo mode to auto-accept actions (omit when WINDOW_MODE=CHICKEN or a safe window was requested).
 - Gemini CLI will inherit the current working directory.
 - The forked tmux window will track execution status in `/tmp/fork-tmux-status/`.
