@@ -8,10 +8,20 @@
 # Usage:   watch_windows.sh @50 @53 ...      # window ids (@N), one or more
 #
 # Env overrides:
-#   CTX_THRESHOLD  high-context %, fires only at a clean stop   (default 38)
-#   POLL_SECS      seconds between sweeps                        (default 6)
-#   IDLE_CONFIRM   consecutive non-busy reads before IDLE fires (default 3)
-#   TMUX_PANES_PY  explicit path to the plugin's tmux_panes.py
+#   CTX_THRESHOLD     fixed high-context % for ALL windows — set it to disable
+#                     the per-model auto-detection below         (default unset)
+#   CTX_THRESHOLD_1M  high-context % for 1M-context models, detected by the
+#                     literal "[1m]" in the status line's model  (default 38)
+#   CTX_THRESHOLD_STD high-context % for standard ~200K models   (default 75)
+#   POLL_SECS         seconds between sweeps                      (default 6)
+#   IDLE_CONFIRM      consecutive non-busy reads before IDLE fires (default 3)
+#   TMUX_PANES_PY     explicit path to the plugin's tmux_panes.py
+#
+# Threshold auto-detection: the same captured pane text that carries the
+# [NN.N%] context figure also carries the model name (e.g. "[Sonnet 4.6 [1m]]"
+# vs "[Opus 4.8]"). Capture is ANSI-stripped, so a literal "[1m]" can only be
+# the 1M-context model marker. 38% is right for a 1M window but trips
+# constantly on 200K models, hence the split.
 #
 # Output (one line, then exit 0):
 #   ATTENTION <window-name> (<@id>): IDLE | IDLE_HIGH:<pct> | QUESTION | GONE
@@ -33,7 +43,9 @@ elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
 else
   PANES="$(cd "$(dirname "$0")/../../.." && pwd)/scripts/tmux_panes.py"
 fi
-CTX_THRESHOLD="${CTX_THRESHOLD:-38}"
+CTX_THRESHOLD="${CTX_THRESHOLD:-}"
+CTX_THRESHOLD_1M="${CTX_THRESHOLD_1M:-38}"
+CTX_THRESHOLD_STD="${CTX_THRESHOLD_STD:-75}"
 POLL_SECS="${POLL_SECS:-6}"
 IDLE_CONFIRM="${IDLE_CONFIRM:-3}"
 
@@ -65,8 +77,17 @@ classify() {
     echo QUESTION; return
   fi
   # 3) Idle — distinguish high-context (ready to compact) from normal idle.
+  #    Threshold is per-window: explicit CTX_THRESHOLD wins, else pick by model.
+  local thr
+  if [ -n "$CTX_THRESHOLD" ]; then
+    thr="$CTX_THRESHOLD"
+  elif printf '%s\n' "$txt" | grep -qiF '[1m]'; then
+    thr="$CTX_THRESHOLD_1M"
+  else
+    thr="$CTX_THRESHOLD_STD"
+  fi
   pct=$(printf '%s\n' "$txt" | grep -oE '\[[0-9]+\.[0-9]+%\]' | tail -1 | tr -dc '0-9.')
-  if [ -n "$pct" ] && awk "BEGIN{exit !($pct>=$CTX_THRESHOLD)}"; then echo "IDLE_HIGH:$pct"; return; fi
+  if [ -n "$pct" ] && awk "BEGIN{exit !($pct>=$thr)}"; then echo "IDLE_HIGH:$pct"; return; fi
   echo IDLE
 }
 
