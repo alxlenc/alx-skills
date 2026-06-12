@@ -1,6 +1,6 @@
 ---
 name: fork-tmux
-description: Fork a new tmux window that runs a command with status tracking, log capture, and wait-for-completion polling. Use when the user requests 'fork tmux', 'fork a window', 'fork to run X', 'side task: <task>', 'fork session', 'fork this session', 'rewind session', or 'rewind to'. Requires an active tmux session ($TMUX). Supports forking the current Claude session with full context preservation, and rewinding to a previous conversation state. Prefer the `tmux` skill's `window-new` for lightweight fire-and-forget window creation; use fork-tmux when you need a tracked session.
+description: "Fork a new tmux window that runs a command with status tracking, log capture, and wait-for-completion polling. Use when the user requests 'fork tmux', 'fork a window', 'fork to run X', 'side task: <task>', 'fork session', 'fork this session', 'rewind session', 'rewind to', or wants to delegate a task to Claude, Gemini, or Codex (YOLO) in a new tmux window. Requires an active tmux session ($TMUX). Supports forking the current Claude session with full context preservation, and rewinding to a previous conversation state. Prefer the `tmux` skill's `window-new` for lightweight fire-and-forget window creation; use fork-tmux when you need a tracked session."
 ---
 
 # Purpose
@@ -18,7 +18,18 @@ Follow the `Instructions`, execute the `Workflow`, based on the `Cookbook`.
 ENABLE_RAW_CLI_COMMANDS: true
 ENABLE_CLAUDE_CODE: true
 ENABLE_GEMINI_CLI: true
+ENABLE_CODEX: true
 ENABLE_SESSION_FORK: true
+WINDOW_MODE: ${user_config.window_mode}
+
+### WINDOW_MODE — YOLO vs CHICKEN
+
+`WINDOW_MODE` (plugin user config, set via `/plugin` → tmux-claude → configure) decides whether delegated agent windows auto-approve actions:
+
+- **YOLO** — include the bypass flag in the agent command: `claude --dangerously-skip-permissions`, `codex --yolo`, `gemini -y`.
+- **CHICKEN** — omit that flag so the window keeps its normal permission/approval prompts.
+
+Resolution order: explicit request wording ("safe window", "with permissions" → CHICKEN; "yolo", "dangerously" → YOLO) **beats** WINDOW_MODE. If WINDOW_MODE is anything other than `CHICKEN` — including blank or an unsubstituted `${...}` placeholder — treat it as YOLO. Apply this when executing any agent cookbook below; the cookbook examples show the YOLO form.
 
 ## Requirements
 
@@ -55,6 +66,7 @@ Examples:
 | "fork to run npm install" | `npm-install` |
 | "fork session to fix the style violations" | `fix-style` |
 | "fork tmux with gemini to analyze the logs" | `log-analysis` |
+| "open a yolo codex window to fix the tests" | `fix-tests` |
 
 ### Working Directory Detection
 
@@ -72,7 +84,7 @@ If no working directory is specified, omit `--cwd` (defaults to current director
 
 **DO NOT** execute `fork_tmux.py` until you have:
 
-1. ✅ Identified which cookbook recipe applies (Raw CLI Commands, Claude Code, Gemini CLI, Fork Current Session, OR Fork and Rewind Session)
+1. ✅ Identified which cookbook recipe applies (Raw CLI Commands, Claude Code, Gemini CLI, Codex CLI, Fork Current Session, OR Fork and Rewind Session)
 2. ✅ **Actually read** the corresponding cookbook file using the Read tool
 3. ✅ Verified the correct command syntax from that cookbook
 
@@ -115,6 +127,17 @@ If no working directory is specified, omit `--cwd` (defaults to current director
   - "launch gemini in a forked tmux window to refactor the API"
   - "fork tmux with gemini fast to fix the tests"
   - "fork tmux in /home/user/project with gemini to run the setup"
+
+### Codex CLI
+
+- IF: The user requests Codex (OpenAI Codex CLI) to run in a new tmux window AND `ENABLE_CODEX` is true.
+- THEN: Read and execute: `${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/cookbook/codex.md`
+- EXAMPLES:
+  - "open a yolo codex window to fix the failing tests"
+  - "fork tmux with codex to review this code"
+  - "delegate to codex: refactor the API"
+  - "fork a headless codex window to update the changelog"
+  - "fork tmux in /home/user/project with codex to run the setup"
 
 ### Fork Current Session
 
@@ -159,7 +182,7 @@ Forked tmux sessions create files in `/tmp/fork-tmux-status/`:
 | `<session_id>.log` | Full stdout/stderr output (non-interactive commands only) |
 | `<session_id>.sh`  | Wrapper script that ran inside the tmux window |
 
-**Note**: Interactive commands (Claude, Gemini, vim, nvim, nano, htop, top) are auto-detected and run without stdout piping to preserve their TUI interfaces. Status tracking (exit code) still works, but no log file is created.
+**Note**: Interactive commands (Claude, Gemini, Codex, vim, nvim, nano, htop, top) are auto-detected and run without stdout piping to preserve their TUI interfaces. `codex exec` is the exception — it is headless, so it keeps log capture. Status tracking (exit code) still works, but no log file is created.
 
 For Claude commands, the status file also includes `claude_session_id` and `claude_session_file` (path to the JSONL conversation history). These fields are `null` for non-Claude commands.
 

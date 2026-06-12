@@ -42,7 +42,7 @@ ATTENTION renta-escritura (@50): IDLE_HIGH:39  # idle AND ≥ threshold % — ti
 ATTENTION consultas-wiki  (@53): GONE          # window vanished / unreadable
 ```
 
-`IDLE` is confirmed across several sweeps so a spinner caught mid-frame isn't read as a finished turn. `BUSY` (including `Compacting`) is checked before context %, so a working window — or one mid-compaction whose status line still shows a stale high % — never trips `IDLE_HIGH`; high-context only fires at a clean stop. Tune with `CTX_THRESHOLD`, `POLL_SECS`, `IDLE_CONFIRM` (see the script header). To watch a single window, pass one id.
+`IDLE` is confirmed across several sweeps so a spinner caught mid-frame isn't read as a finished turn. `BUSY` (including `Compacting`) is checked before context %, so a working window — or one mid-compaction whose status line still shows a stale high % — never trips `IDLE_HIGH`; high-context only fires at a clean stop. The high-context threshold is **per-model**: the watcher reads the model name from the same status line and uses 38% for 1M-context models (literal `[1m]` in the model name) and 75% for standard ~200K models — 38% on a small window would trip compaction constantly. Tune with `CTX_THRESHOLD_1M` / `CTX_THRESHOLD_STD`, or set `CTX_THRESHOLD` to force one fixed % for all windows; also `POLL_SECS`, `IDLE_CONFIRM` (see the script header). To watch a single window, pass one id.
 
 ### Read a window
 
@@ -96,7 +96,7 @@ For an already-highlighted single option a bare `Enter` also works, but free-tex
 
 A worker that runs out of context mid-task loses its working state. Pre-empt it at a clean stop:
 
-1. The watcher fires `IDLE_HIGH:<pct>` when a window is idle and at/above the threshold (~38%, just under the 40% line).
+1. The watcher fires `IDLE_HIGH:<pct>` when a window is idle and at/above its model's threshold (38% for 1M-context models — just under the 40% line; 75% for standard ~200K models).
 2. **Get it to a clean stop first** — if it has uncommitted work, instruct it to commit a checkpoint and hold. Compacting with uncommitted work strands files the post-compaction window won't "remember" writing.
 3. Once committed and holding, **send `/compact`** (`send "/compact"` then verify `Compacting…` appears). Forewarn the window in the instruction so it's already prepared.
 4. After compaction (context drops to ~0%), hand it the next directive — which must be **self-contained**, since its conversational context was just reset.
