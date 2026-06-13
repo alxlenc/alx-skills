@@ -5,7 +5,7 @@
 #   - Symlinks tmux.conf to ~/.config/tmux/tmux.conf (backs up any existing file)
 #   - Symlinks helper scripts into ~/.tmux/scripts/
 #   - Installs tmux-agent-indicator (files + Claude hooks in ~/.claude/settings.json)
-#   - Git-clones tmux-paste-image into ~/.tmux/plugins/
+#   - Image paste (prefix + I) ships as ~/.tmux/scripts/paste-image.sh (symlinked above)
 #   - Warns (without touching) if a legacy ~/.tmux.conf exists that tmux will now ignore
 #
 # Flags:
@@ -109,9 +109,11 @@ check_clipboard_tool() {
     elif [ -n "${DISPLAY:-}" ]; then
         want="xclip"
     else
-        # No display server detected (headless SSH, console, etc.). Warn and stop.
-        echo "  WARN: no \$WAYLAND_DISPLAY or \$DISPLAY detected — tmux-paste-image needs"
-        echo "        xclip (X11) or wl-clipboard (Wayland) to capture clipboard images."
+        # No local display (headless SSH / console). Image paste still works via a
+        # remote source — point the user at the seam instead of warning it's broken.
+        echo "  note: no \$WAYLAND_DISPLAY or \$DISPLAY (headless). For prefix + I here,"
+        echo "        set @paste-image-clip-command in ~/.config/tmux/local.conf to a"
+        echo "        command that emits PNG bytes, e.g. an ssh-back to your desktop's wl-paste."
         return 0
     fi
 
@@ -166,9 +168,7 @@ fi
 curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda63be1f38efe40528c90c6076a589051df8/install.sh \
     | bash -s -- "${AGENT_INSTALLER_ARGS[@]}"
 
-echo "==> tmux-paste-image"
-clone_or_update "https://github.com/jkhas8/tmux-paste-image.git" "$HOME/.tmux/plugins/tmux-paste-image" \
-    "be6ae115fb85347d2d5b986c789fe28604f448e6"
+echo "==> clipboard image paste"
 check_clipboard_tool
 
 check_legacy_tmux_conf
