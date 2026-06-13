@@ -88,18 +88,18 @@ check_legacy_tmux_conf() {
 }
 
 check_clipboard_tool() {
-    # tmux-paste-image needs xclip (X11) or wl-paste (Wayland). Probe, and if
-    # missing, print an actionable install hint for the current distro.
+    # Local image paste (prefix + I) needs xclip (X11) or wl-paste (Wayland). Probe,
+    # and if missing, print an actionable install hint for the current distro.
     local uname_s
     uname_s="$(uname -s 2>/dev/null || echo unknown)"
 
     if [ "$uname_s" = "Darwin" ]; then
-        echo "  WARN: tmux-paste-image's image-paste workaround doesn't support macOS."
-        echo "        Prefix + I binding will be installed but won't capture clipboard images."
+        echo "  WARN: local clipboard image capture isn't supported on macOS."
+        echo "        Prefix + I is installed; set @paste-image-clip-command for a remote source."
         return 0
     fi
     if [ "$uname_s" != "Linux" ]; then
-        echo "  WARN: unsupported OS ($uname_s) — tmux-paste-image needs X11 or Wayland."
+        echo "  WARN: unsupported OS ($uname_s) — local image capture needs X11 or Wayland."
         return 0
     fi
 
