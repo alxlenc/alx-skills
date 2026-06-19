@@ -123,6 +123,20 @@ A worker that runs out of context mid-task loses its working state. Pre-empt it 
 
 Sequence: **commit checkpoint → /compact → resume with a fresh, self-contained directive.** This also gives a risky refactor full context headroom.
 
+### Pre-compaction state log — the controller compacts itself
+
+The handshake above pre-empts a *worker* running out of context. The controller has the same problem, but worse: compaction summarizes and blurs exactly the conversational context the controller runs on — the live orchestration state. Before the controller compacts (or recommends the user compact it) at high context, **write a durable pre-compaction state log first.** An external file preserves the in-flight orchestration precisely so the post-compaction controller resumes without loss.
+
+Write it to a durable scratch file — e.g. `/tmp/controller-msgs/CONTROLLER-STATE.md` — capturing:
+
+- **Git / branch / merge state** — current branch + commit, what's been merged this session, uncommitted/working-tree changes, push state.
+- **Each in-flight worker** — its window id (`@N`), branch/worktree, task, the file PATHS to its plan/report scratch files, and the invariant it must preserve — so a half-finished gate can be resumed.
+- **Queued / next work**, with any merge-ordering or file-contention notes.
+- **Open decisions that are the user's to make** — surface them, don't bake them.
+- **Key invariants / conventions in play** — e.g. a project's oracle value, the canonical test command.
+
+This is compaction-safe by design: the watcher stays armed across compaction and re-invokes the controller when a worker next needs attention; worker reports persist in their scratch files; durable memory holds the cross-session facts. **The post-compaction controller's first move is to read the state log.**
+
 ## Coordinating a cross-window git merge
 
 When one window finishes work on a branch/worktree that another window owns the main checkout of:
