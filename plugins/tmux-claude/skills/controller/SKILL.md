@@ -9,6 +9,12 @@ Supervise one or more **other Claude Code windows** running in tmux. The control
 
 This is the programmatic counterpart to the plugin's `tmux-agent-indicator` dotfile (which colours a window's border when it flips `running → needs-input → done`): the watcher reads that same transition from the pane text and wakes the controller on it.
 
+## Vocabulary
+
+- **Worker** = a **YOLO tmux window**: a separate Claude Code (or codex) instance launched with `claude --dangerously-skip-permissions` (or `codex --dangerously-bypass-approvals-and-sandbox`) in its own tmux window, addressed by **window id `@N`**. It is a real window the user can see and drive. A worker is **NOT** an ephemeral `Agent`/sub-agent tool call. When the user says "use a worker" / "drive this from a worker," they mean *spawn a tmux window*, not a hidden sub-agent.
+- **The controller does not do the work.** Its job is dispatch → gate → merge → compact. For any substantive implementation or investigation, spawn a worker and supervise it; don't code/investigate inline, and don't bury that work in sub-agents (which are invisible to the user and return straight into the controller's context — that reads as the controller doing the work itself).
+- **Fast `↯` vs effort `◉` — don't conflate them.** The `↯` lightning glyph in a window's status divider = **FAST mode** (the `/fast` toggle). The `◉ xhigh · /effort` indicator = **reasoning effort**. They're orthogonal. Fresh `claude` launches default **non-fast** (verified by A/B test); fast only appears via an in-session `/fast` toggle. So the controller normally needs to do nothing — but as a cheap habit, glance for `↯` after launch and `/fast off` if it's there.
+
 ## Requirements
 
 - Must be running inside tmux (`$TMUX` set).
@@ -42,6 +48,8 @@ ATTENTION renta-escritura (@50): IDLE_HIGH:39  # idle AND ≥ threshold % — ti
 ATTENTION consultas-wiki  (@53): GONE          # window vanished / unreadable
 ```
 
+**`IDLE` means "looks stopped," not "is done."** High-effort (e.g. `xhigh`) workers pause between thinking phases and can **false-fire IDLE** even though they're still working. Never treat IDLE as proof of completion — ground-truth done-ness before acting on it: a commit on the worker's branch (`git -C <worktree> log <base>..HEAD`), a clean tree (`git status --porcelain`), a written report file, or a rising OUTPUT-token counter / `N new messages ↓` (= still working). If a worker keeps false-firing, **re-arm the watcher more tolerantly** (`IDLE_CONFIRM=5 POLL_SECS=10 bash …/watch_windows.sh @N`).
+
 `IDLE` is confirmed across several sweeps so a spinner caught mid-frame isn't read as a finished turn. `BUSY` (including `Compacting`) is checked before context %, so a working window — or one mid-compaction whose status line still shows a stale high % — never trips `IDLE_HIGH`; high-context only fires at a clean stop. The high-context threshold is **per-model**: the watcher reads the model name from the same status line and uses 38% for 1M-context models (literal `[1m]` in the model name) and 75% for standard ~200K models — 38% on a small window would trip compaction constantly. Tune with `CTX_THRESHOLD_1M` / `CTX_THRESHOLD_STD`, or set `CTX_THRESHOLD` to force one fixed % for all windows; also `POLL_SECS`, `IDLE_CONFIRM` (see the script header). To watch a single window, pass one id.
 
 ### Read a window
@@ -69,6 +77,18 @@ sleep 3; python3 "$PANES" read -t @50 -S -6          # verify it submitted
 ```
 
 Sending while a window is **busy** queues the message (it runs after the current turn) — fine for handing a worker its next instruction early.
+
+### Harvesting a worker's long report
+
+A worker's final report often renders **below the TUI viewport**: `read` shows only the scrolled-up top, and a `N new messages ↓` indicator appears. Don't fight the scroll. Ask the worker to **write its full report to a scratch file**, then `Read` that file:
+
+```bash
+python3 "$PANES" send -f /tmp/controller-msgs/harvest.txt -t @50   # "Write your full report to /tmp/report-50.txt"
+python3 "$PANES" send "" -t @50
+# …then read the file directly, not the pane.
+```
+
+This is the same trick in reverse from the file-mode send: files sidestep both shell quoting *and* the viewport. Keep per-window scratch files under a scratch dir (e.g. `/tmp/controller-msgs/to-<id>-*.txt`) — clean and auditable.
 
 ### Answering a worker's question (selectors)
 
@@ -108,13 +128,58 @@ Sequence: **commit checkpoint → /compact → resume with a fresh, self-contain
 When one window finishes work on a branch/worktree that another window owns the main checkout of:
 
 1. **Wait for a clean boundary** — the owning window idle with a clean tree, between phases.
-2. **Verify the footprint is disjoint** — `git diff --name-only main...<branch>` must not overlap the other window's working files. Disjoint file-sets merge conflict-free regardless of how far the branches diverged.
+2. **Gate the branch before merging** (the controller's job — workers don't self-merge):
+   - Scan the **commit message** for AI attribution and reject it (`co-authored`, `claude`, `codex`, `anthropic`, `openai`, `gpt`, `generated-with`, `🤖`).
+   - Confirm the **footprint is in-scope and disjoint** — `git diff --name-only main...<branch>` shouldn't overstep the brief or overlap another window's working files. (A worker reaching "linter clean" can do so by *deleting* a note and its references — diff to catch scope-creep, not just to check for conflicts.)
+   - Scan **added diff lines** for sensitive/personal data — `git diff main...<branch> | grep '^+'`. Workers copy real values into "synthetic" fixtures; catch it here.
+   - Run linters + the **full test suite**, and the **ground-truth/oracle check** read-only (delta 0, or a consciously-accepted change).
 3. **One writer per worktree.** Have the window that owns the main checkout run the merge (`git merge --no-ff <branch>`); don't reach into its working directory from the controller.
-4. **Verify after** — the merge auto-commit can bypass pre-commit, so run the full suite + any promoted-to-error linters explicitly; confirm the owning window's own work survived. STOP on any conflict or hook failure.
-5. **Local only** unless the user asks — no push/pull.
+4. **Verify after** — the merge auto-commit can bypass pre-commit, so re-run the full suite + any promoted-to-error linters + the oracle on the merged tree; confirm the owning window's own work survived. STOP on any conflict or hook failure.
+5. **Local only** unless the user asks — no push/pull. Then clean up the worktree (`cd` to the **main repo first**, then `git worktree remove <path>` — removing it while CWD is inside breaks every later command).
+
+## Field-tested tricks
+
+### Launching a worker
+
+```bash
+git worktree add -b <branch> <worktree-path> <base>          # isolate the worker
+WID=$(tmux new-window -d -n <name> -c <worktree-path> -P -F '#{window_id}')   # capture @N
+# launch the YOLO command in that window:
+python3 "$PANES" send 'claude --dangerously-skip-permissions' -t "$WID"
+# first run shows "Do you trust the files in this folder?" — Enter on "Yes, I trust"
+python3 "$PANES" send "" -t "$WID"
+# then brief it: clear ghost → send the file → Enter → read back to confirm the spinner started
+python3 "$PANES" send "C-u" -t "$WID" --no-enter
+python3 "$PANES" send -f /tmp/controller-msgs/to-<name>.txt -t "$WID"
+python3 "$PANES" send "" -t "$WID"
+```
+
+### Self-contained briefs — workers share NO context
+
+Every brief is standalone (a compacted or fresh worker has no memory of prior turns; codex has no memory at all). Write the brief to a scratch file and send it with `send -f`. A good brief carries, inline:
+
+- **Role:** "You are a WORKER reporting to a controller; your final message IS the report" (and "write your full report to `<path>` when done").
+- **The task**, with **precise `file:line` pointers**.
+- **Constraints:** behaviour-preserving; a ground-truth/oracle check + how to run it read-only; synthetic test data only (no real personal data); commit to the branch; no push; no AI-attribution in the commit message.
+- **Explicit STOP-and-report conditions** for the risky/design parts — and forbid destructive/value-judgment actions (deletions, "consolidations") outside the named change. Open-ended phrasing invites overreach.
+
+### codex vs claude workers
+
+- **codex** for well-scoped coding. No memory → briefs must be fully self-contained. Its composer often **won't submit a long multi-line paste** (it inserts newlines) — so write the brief to a file and send a **short single-line** pointer: "Read `<path>` in full and execute it, honoring every constraint." (`Ctrl+C` clears a stuck composer without quitting codex.)
+- **claude** for judgment, investigation, and ambiguous work.
+
+### Verify empirically, don't assert
+
+When any source — including a sub-agent or a docs lookup — claims a config knob or fact, **test it with an A/B control** before relying on it. Never present an unverified claim as a guarantee. (Example: a proposed "disable fast mode" setting turned out unverifiable and unnecessary once an A/B test showed fresh launches default non-fast.)
+
+### Nudge through transient errors
+
+If a worker stalls on a **transient API error** (e.g. `529 Overloaded`) and its turn ends, that's not a real stop — nudge it to resume from where it left off ("Resume the task from where you left off after the transient 529"). Distinguish this from a genuine clean stop before handing it a *new* directive.
 
 ## Notes
 
 - The controller's messages arrive at a worker as ordinary user input. Be explicit that you are the controller so the worker frames its replies for you.
 - Keep small per-window scratch files for the messages you send (`/tmp` or a scratch dir) — it makes the file-mode sends above clean and auditable.
-- If the user starts driving a worker window directly, step back from it to avoid two-writer collisions; keep supervising the others and stay on call.
+- **Two-writer rule.** If the user starts driving a worker window directly, step back from it to avoid collisions — **offer**, don't reach in; keep supervising the others and stay on call. Likewise never run two workers against the same working tree (give each its own worktree).
+- **`pkill -f` self-match footgun.** If the controller restarts a service, never `pkill -f "<pattern>"` when the controller's own command line contains `<pattern>` — `-f` matches full command lines, so it SIGKILLs the controller's own shell mid-command and the relaunch never runs. Kill by exact PID (`ss -ltnp` → `kill <pid>`) or a bracket-trick (`pgrep -af '[u]vicorn'`); verify the port is free with `ss`/`curl` before and after.
+- **Stay the controller.** Don't commission new analysis rounds while the previous round's remediation is unfinished — finish executing first. The controller's energy goes to dispatch, gating/merging, the compaction handshake, and worker context-health.
