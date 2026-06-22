@@ -32,6 +32,17 @@ Run this loop per supervised window, indefinitely:
 
 Never busy-poll from the foreground. The watcher is the only thing that should spin; the controller sleeps between events.
 
+### Scratch directory — namespace it per controller
+
+Every scratch file below (messages to workers, harvested reports, the state log) lives in a **per-controller** directory so two controllers on one machine never clobber each other's files. Derive it **once**, at the start of the loop, from the controller's own tmux window id — the `@` stripped so the folder name leads with the number:
+
+```bash
+CTL_DIR="/tmp/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
+mkdir -p "$CTL_DIR"      # e.g. /tmp/controller-msgs/7
+```
+
+The window id is unique per tmux server and **stable across the controller's own `/compact` and claude relaunch** (the process restarts, the window id doesn't) — so a recovering controller recomputes the same `$CTL_DIR` and still finds its `CONTROLLER-STATE.md`. Use `$CTL_DIR/...` for every scratch path from here on.
+
 ### Arm the watcher
 
 ```bash
@@ -71,7 +82,7 @@ Typing into another Claude window from a script is fiddly. Follow this exact seq
 ```bash
 PANES="${CLAUDE_PLUGIN_ROOT}/scripts/tmux_panes.py"
 python3 "$PANES" send "C-u" -t @50 --no-enter        # clear ghost
-python3 "$PANES" send -f /tmp/msg.txt -t @50         # type the message
+python3 "$PANES" send -f $CTL_DIR/msg.txt -t @50     # type the message
 python3 "$PANES" send "" -t @50                      # press Enter to submit
 sleep 3; python3 "$PANES" read -t @50 -S -6          # verify it submitted
 ```
@@ -83,12 +94,12 @@ Sending while a window is **busy** queues the message (it runs after the current
 A worker's final report often renders **below the TUI viewport**: `read` shows only the scrolled-up top, and a `N new messages ↓` indicator appears. Don't fight the scroll. Ask the worker to **write its full report to a scratch file**, then `Read` that file:
 
 ```bash
-python3 "$PANES" send -f /tmp/controller-msgs/harvest.txt -t @50   # "Write your full report to /tmp/report-50.txt"
+python3 "$PANES" send -f $CTL_DIR/harvest.txt -t @50   # "Write your full report to $CTL_DIR/report-50.txt"
 python3 "$PANES" send "" -t @50
 # …then read the file directly, not the pane.
 ```
 
-This is the same trick in reverse from the file-mode send: files sidestep both shell quoting *and* the viewport. Keep per-window scratch files under a scratch dir (e.g. `/tmp/controller-msgs/to-<id>-*.txt`) — clean and auditable.
+This is the same trick in reverse from the file-mode send: files sidestep both shell quoting *and* the viewport. Keep per-window scratch files under `$CTL_DIR` (e.g. `$CTL_DIR/to-<id>-*.txt`) — clean and auditable.
 
 ### Answering a worker's question (selectors)
 
@@ -97,7 +108,7 @@ When a window shows an interactive selector (numbered options, a y/n box, an Ask
 ```bash
 python3 "$PANES" send "Escape" -t @53 --no-enter
 python3 "$PANES" send "C-u" -t @53 --no-enter
-python3 "$PANES" send -f /tmp/answer.txt -t @53
+python3 "$PANES" send -f $CTL_DIR/answer.txt -t @53
 python3 "$PANES" send "" -t @53
 ```
 
@@ -127,7 +138,7 @@ Sequence: **commit checkpoint → /compact → resume with a fresh, self-contain
 
 The handshake above pre-empts a *worker* running out of context. The controller has the same problem, but worse: compaction summarizes and blurs exactly the conversational context the controller runs on — the live orchestration state. Before the controller compacts (or recommends the user compact it) at high context, **write a durable pre-compaction state log first.** An external file preserves the in-flight orchestration precisely so the post-compaction controller resumes without loss.
 
-Write it to a durable scratch file — e.g. `/tmp/controller-msgs/CONTROLLER-STATE.md` — capturing:
+Write it to a durable scratch file — `$CTL_DIR/CONTROLLER-STATE.md` — capturing:
 
 - **Git / branch / merge state** — current branch + commit, what's been merged this session, uncommitted/working-tree changes, push state.
 - **Each in-flight worker** — its window id (`@N`), branch/worktree, task, the file PATHS to its plan/report scratch files, and the invariant it must preserve — so a half-finished gate can be resumed.
@@ -164,7 +175,7 @@ python3 "$PANES" send 'claude --dangerously-skip-permissions' -t "$WID"
 python3 "$PANES" send "" -t "$WID"
 # then brief it: clear ghost → send the file → Enter → read back to confirm the spinner started
 python3 "$PANES" send "C-u" -t "$WID" --no-enter
-python3 "$PANES" send -f /tmp/controller-msgs/to-<name>.txt -t "$WID"
+python3 "$PANES" send -f $CTL_DIR/to-<name>.txt -t "$WID"
 python3 "$PANES" send "" -t "$WID"
 ```
 
@@ -193,7 +204,7 @@ If a worker stalls on a **transient API error** (e.g. `529 Overloaded`) and its 
 ## Notes
 
 - The controller's messages arrive at a worker as ordinary user input. Be explicit that you are the controller so the worker frames its replies for you.
-- Keep small per-window scratch files for the messages you send (`/tmp` or a scratch dir) — it makes the file-mode sends above clean and auditable.
+- Keep small per-window scratch files for the messages you send (under the per-controller `$CTL_DIR`) — it makes the file-mode sends above clean and auditable.
 - **Two-writer rule.** If the user starts driving a worker window directly, step back from it to avoid collisions — **offer**, don't reach in; keep supervising the others and stay on call. Likewise never run two workers against the same working tree (give each its own worktree).
 - **`pkill -f` self-match footgun.** If the controller restarts a service, never `pkill -f "<pattern>"` when the controller's own command line contains `<pattern>` — `-f` matches full command lines, so it SIGKILLs the controller's own shell mid-command and the relaunch never runs. Kill by exact PID (`ss -ltnp` → `kill <pid>`) or a bracket-trick (`pgrep -af '[u]vicorn'`); verify the port is free with `ss`/`curl` before and after.
 - **Stay the controller.** Don't commission new analysis rounds while the previous round's remediation is unfinished — finish executing first. The controller's energy goes to dispatch, gating/merging, the compaction handshake, and worker context-health.
