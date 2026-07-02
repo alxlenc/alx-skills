@@ -43,6 +43,31 @@ def _get_script_file(session_id: str) -> Path:
 
 _CLAUDE_PREFIXES = ("claude ", "claude'", 'claude"')
 
+_TUI_BINARIES = ("claude", "gemini", "codex", "vim", "nvim", "nano", "htop", "top")
+
+
+def _script_launches_tui(command: str) -> bool:
+    """Return True if the command is a shell script that invokes a known TUI binary."""
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    script_path = parts[0]
+    if not os.path.isfile(script_path):
+        return False
+    try:
+        with open(script_path) as f:
+            content = f.read()
+    except OSError:
+        return False
+    for binary in _TUI_BINARIES:
+        # Match the binary at a word boundary (start of line, after whitespace, or after exec)
+        if re.search(r'(?:^|[\s;|&]|exec\s+)' + re.escape(binary) + r'(?:\s|$|["\'])', content, re.MULTILINE):
+            return True
+    return False
+
 
 def is_interactive_command(command: str) -> bool:
     """Detect interactive TUI commands that shouldn't have stdout piped."""
@@ -56,7 +81,9 @@ def is_interactive_command(command: str) -> bool:
         "codex ", "codex'", 'codex"',
         "vim ", "nvim ", "nano ", "htop", "top",
     )
-    return any(cmd_lower.startswith(p) for p in interactive_prefixes)
+    if any(cmd_lower.startswith(p) for p in interactive_prefixes):
+        return True
+    return _script_launches_tui(command)
 
 
 def _is_claude_command(command: str) -> bool:
