@@ -17,7 +17,7 @@ Do **not** compact mid-flight. Wait for a clean boundary, per the controller ski
 The file is `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` from your own tmux window id — it is stable across your `/compact` and relaunch, so the post-compaction you derives the same path:
 
 ```bash
-CTL_DIR="/tmp/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
+CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
 mkdir -p "$CTL_DIR"
 ```
 
