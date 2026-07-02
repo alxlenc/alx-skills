@@ -37,11 +37,11 @@ Never busy-poll from the foreground. The watcher is the only thing that should s
 Every scratch file below (messages to workers, harvested reports, the state log) lives in a **per-controller** directory so two controllers on one machine never clobber each other's files. Derive it **once**, at the start of the loop, from the controller's own tmux window id — the `@` stripped so the folder name leads with the number:
 
 ```bash
-CTL_DIR="/tmp/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
-mkdir -p "$CTL_DIR"      # e.g. /tmp/controller-msgs/7
+CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
+mkdir -p "$CTL_DIR"      # e.g. ~/.local/state/controller-msgs/7
 ```
 
-The window id is unique per tmux server and **stable across the controller's own `/compact` and claude relaunch** (the process restarts, the window id doesn't) — so a recovering controller recomputes the same `$CTL_DIR` and still finds its `CONTROLLER-STATE.md`. Use `$CTL_DIR/...` for every scratch path from here on.
+The window id is unique per tmux server and **stable across the controller's own `/compact` and claude relaunch** (the process restarts, the window id doesn't) — so a recovering controller recomputes the same `$CTL_DIR` and still finds its `CONTROLLER-STATE.md`. The XDG state dir also survives reboots, unlike `/tmp`. Use `$CTL_DIR/...` for every scratch path from here on.
 
 ### Arm the watcher
 

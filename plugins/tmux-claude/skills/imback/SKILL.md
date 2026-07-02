@@ -25,8 +25,13 @@ Spin up a **worker** (a tmux window) to carry any substantive investigation or i
 `/illbeback` wrote your status to the controller log file `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` the same way (your window id is stable across compaction):
 
 ```bash
-CTL_DIR="/tmp/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
+WID="$(tmux display-message -p '#{window_id}' | tr -d '@')"
+CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$WID"
+# Migration grace: state written before the XDG move lived under /tmp
+if [ ! -f "$CTL_DIR/CONTROLLER-STATE.md" ] && [ -f "/tmp/controller-msgs/$WID/CONTROLLER-STATE.md" ]; then
+  CTL_DIR="/tmp/controller-msgs/$WID"
+fi
 cat "$CTL_DIR/CONTROLLER-STATE.md"
 ```
 
-Read it in full, then keep working from where it left off.
+If the fallback fired (you read from the old `/tmp` path), say so when you resume. Read the log in full, then keep working from where it left off.
