@@ -14,11 +14,10 @@ Do **not** compact mid-flight. Wait for a clean boundary, per the controller ski
 
 ## 2. Write your recovery status to the controller log file
 
-The file is `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` from your own tmux window id — it is stable across your `/compact` and relaunch, so the post-compaction you derives the same path:
+The file is `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` with the plugin's shared resolver — it keys the dir on your window's **name** (renaming the window first if it was never explicitly named), which is stable across your `/compact` and relaunch **and** across a tmux-server restart, so the post-compaction you derives the same path:
 
 ```bash
-CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
-mkdir -p "$CTL_DIR"
+CTL_DIR="$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/ctl_dir.sh")"
 ```
 
 Capture everything the controller skill's **"Pre-compaction state log"** section lists — enough to resume with **zero** conversational memory:

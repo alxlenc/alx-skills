@@ -34,14 +34,15 @@ Never busy-poll from the foreground. The watcher is the only thing that should s
 
 ### Scratch directory — namespace it per controller
 
-Every scratch file below (messages to workers, harvested reports, the state log) lives in a **per-controller** directory so two controllers on one machine never clobber each other's files. Derive it **once**, at the start of the loop, from the controller's own tmux window id — the `@` stripped so the folder name leads with the number:
+Every scratch file below (messages to workers, harvested reports, the state log) lives in a **per-controller** directory so two controllers on one machine never clobber each other's files. Derive it **once**, at the start of the loop, with the plugin's shared resolver — it keys the directory on the controller window's **name**:
 
 ```bash
-CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$(tmux display-message -p '#{window_id}' | tr -d '@')"
-mkdir -p "$CTL_DIR"      # e.g. ~/.local/state/controller-msgs/7
+CTL_DIR="$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/ctl_dir.sh")"   # e.g. ~/.local/state/controller-msgs/tax-service-controller
 ```
 
-The window id is unique per tmux server and **stable across the controller's own `/compact` and claude relaunch** (the process restarts, the window id doesn't) — so a recovering controller recomputes the same `$CTL_DIR` and still finds its `CONTROLLER-STATE.md`. The XDG state dir also survives reboots, unlike `/tmp`. Use `$CTL_DIR/...` for every scratch path from here on.
+The resolver does three things. If the window was never explicitly named, it **renames it first** — deterministic default `<cwd-basename>-controller`, with `-2`/`-3` appended if another window in the session holds that name; you may pick a more descriptive kebab-case name yourself with `tmux rename-window` before running it, but the window **must** end up explicitly named before `$CTL_DIR` is derived. It then keys the dir on the sanitized name (lowercase `[a-z0-9-]`, everything else collapsed to `-`). And it migrates a pre-0.9.0 numeric-id dir for this window into the name-keyed path, one time.
+
+Why the name and not the window id: ids (`@N`) are reassigned when the tmux server restarts (e.g. a reboot), which orphans an id-keyed state dir; the name is stable across the controller's own `/compact`/claude relaunch **and** across server restarts — a controller relaunched in a same-named window recomputes the same `$CTL_DIR` and still finds its `CONTROLLER-STATE.md`. The XDG state dir also survives reboots, unlike `/tmp`. Caveat: window names are **not unique across tmux sessions** — the supported shape is a single user in a single session, one controller per name. Use `$CTL_DIR/...` for every scratch path from here on.
 
 ### Arm the watcher
 
