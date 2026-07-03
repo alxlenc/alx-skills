@@ -22,16 +22,16 @@ Spin up a **worker** (a tmux window) to carry any substantive investigation or i
 
 ## 4. Read your pre-compaction state, then resume
 
-`/illbeback` wrote your status to the controller log file `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` the same way (your window id is stable across compaction):
+`/illbeback` wrote your status to the controller log file `$CTL_DIR/CONTROLLER-STATE.md`. Recompute `$CTL_DIR` with the plugin's shared resolver — it keys the dir on your window's **name** (stable across compaction and tmux-server restarts) and migrates a pre-0.9.0 numeric-id dir for this window automatically:
 
 ```bash
-WID="$(tmux display-message -p '#{window_id}' | tr -d '@')"
-CTL_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/controller-msgs/$WID"
-# Migration grace: state written before the XDG move lived under /tmp
+CTL_DIR="$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/ctl_dir.sh")"
+# Legacy grace: state written before the XDG move (0.8.1) lived under /tmp, keyed on window id
+WID="$(tmux display-message -t "$TMUX_PANE" -p '#{window_id}' | tr -d '@')"
 if [ ! -f "$CTL_DIR/CONTROLLER-STATE.md" ] && [ -f "/tmp/controller-msgs/$WID/CONTROLLER-STATE.md" ]; then
   CTL_DIR="/tmp/controller-msgs/$WID"
 fi
 cat "$CTL_DIR/CONTROLLER-STATE.md"
 ```
 
-If the fallback fired (you read from the old `/tmp` path), say so when you resume. Read the log in full, then keep working from where it left off.
+If a fallback fired (the resolver printed a migration note, or you read from the old `/tmp` path), say so when you resume. Read the log in full, then keep working from where it left off.
