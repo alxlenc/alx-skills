@@ -28,16 +28,16 @@ Collect everything the new session needs to continue the work:
 
 ### Step 2: Determine the Session Name
 
-Derive a continuation name from the current tmux window:
+Derive a continuation name from the current tmux window. Target `$TMUX_PANE` explicitly — an untargeted `tmux display-message` resolves to the attached client's ACTIVE pane, not the calling pane, so it would read some other window's name whenever this session isn't the active window:
 
 ```bash
-tmux display-message -p '#{window_name}'
+tmux display-message -t "$TMUX_PANE" -p '#{window_name}'
 ```
 
 Append an incrementing number suffix:
 - If the current name has no suffix (e.g., `market-data`), the new name is `market-data-2`
 - If the current name already has a suffix (e.g., `market-data-2`), increment it to `market-data-3`
-- Rename the current window to add `-1` if it doesn't already have a numeric suffix, so both sessions are clearly numbered
+- Rename the current window (`tmux rename-window -t "$TMUX_PANE" <name>`) to add `-1` if it doesn't already have a numeric suffix, so both sessions are clearly numbered
 
 ### Step 3: Write the Continuation Prompt
 
@@ -93,7 +93,7 @@ Use the tmux skill's script (co-located in this plugin) to execute the handoff:
      -t <new_pane_id>
    ```
 
-3. **Rename the current window** if it doesn't already have a numeric suffix — append `-1`.
+3. **Rename the current window** if it doesn't already have a numeric suffix — append `-1` (`tmux rename-window -t "$TMUX_PANE" <name>`, targeted for the same reason as Step 2).
 
 4. **Confirm** to the user that the handoff is complete, showing the new session name and a brief summary of what was handed off.
 
