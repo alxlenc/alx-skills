@@ -11,7 +11,7 @@ Opinionated tmux configuration that pairs with the `tmux` skill in this plugin.
 
 ## Plugins installed
 
-- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled.
+- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled. Installed from the vendored copy in `vendor/tmux-agent-indicator/` (pinned upstream commit, no network fetch — see `VENDORED.md` there for provenance and how to update).
 (Image paste — prefix + `I` — is no longer a cloned plugin; it ships as the vendored `scripts/paste-image.sh`, see above.)
 
 ## Remote / SSH clipboard (prefix + `I` over SSH)
@@ -38,7 +38,7 @@ image.
 
 ## Claude hooks added
 
-`install.sh` delegates to `tmux-agent-indicator`'s own installer, which merges these into `~/.claude/settings.json`:
+`install.sh` delegates to the vendored `tmux-agent-indicator` installer, which merges these into `~/.claude/settings.json`:
 
 | Event | Action |
 |---|---|
@@ -75,8 +75,7 @@ Remove the hooks and files:
 
 ```bash
 # Remove Claude hooks
-curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda63be1f38efe40528c90c6076a589051df8/install.sh \
-    | bash -s -- --uninstall-claude --no-codex --no-opencode
+bash dotfiles/vendor/tmux-agent-indicator/install.sh --uninstall-claude --no-codex --no-opencode
 
 # Remove config + plugins
 rm -f ~/.config/tmux/tmux.conf ~/.tmux/scripts/open-file-from-buffer.sh ~/.tmux/scripts/paste-image.sh
