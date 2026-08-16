@@ -7,7 +7,7 @@ Opinionated tmux configuration that pairs with the `tmux` skill in this plugin.
 - `config/tmux.conf` — single-file tmux config (gpakosz-style). Catppuccin Mocha theme, vi-style copy mode, cross-platform clipboard (Wayland/X11/macOS/WSL/tmate), intuitive splits, prefix + `o` to open file paths from the buffer, prefix + `U` for URL extraction, prefix + `F` for Facebook PathPicker, prefix + `e` to edit + reload config.
 - `scripts/open-file-from-buffer.sh` — helper invoked by prefix + `o`.
 - `scripts/paste-image.sh` — helper invoked by prefix + `I`; saves a clipboard image and types `/image <path>` into a Claude pane. Adapted from [`jkhas8/tmux-paste-image`](https://github.com/jkhas8/tmux-paste-image), extended with the `@paste-image-clip-command` seam (see "Remote / SSH clipboard" below).
-- `install.sh` — symlinks config + scripts (backing up any pre-existing regular files to `<path>.bak.<timestamp>`), installs the agent-indicator plugin, and wires Claude hooks so the agent-indicator reflects the Claude session's live state. Also warns if a legacy `~/.tmux.conf` exists that tmux would now ignore (not touched — just flagged so you can rename it yourself).
+- `install.sh` — copies config + scripts into place (backing up any pre-existing files to `<path>.bak.<timestamp>`), installs the agent-indicator plugin, and wires Claude hooks so the agent-indicator reflects the Claude session's live state. Also warns if a legacy `~/.tmux.conf` exists that tmux would now ignore (not touched — just flagged so you can rename it yourself). Files are copied rather than symlinked because the installer ships in a versioned Claude plugin-cache directory that is replaced on every plugin update — symlinks into it would dangle after a version bump. Re-run `install.sh` after a plugin update to pick up changes; `--symlink` restores link behavior for development checkouts.
 
 ## Plugins installed
 
@@ -66,6 +66,7 @@ Hooks are loaded when a Claude session starts, so **restart Claude** after runni
 ```bash
 bash dotfiles/install.sh              # full turnkey: config + scripts + plugins + Claude hooks
 bash dotfiles/install.sh --no-hooks   # skip the Claude settings.json hook setup
+bash dotfiles/install.sh --symlink    # symlink instead of copy (development checkouts)
 ```
 
 ## Uninstall
