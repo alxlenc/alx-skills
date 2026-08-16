@@ -1,7 +1,7 @@
 {
   "name": "tmux-claude",
   "description": "Drive tmux from Claude Code — split panes, open windows, send commands, read output — plus fork-tmux for tracked tmux-window forks (Claude-session forking, rewind, YOLO Codex/Gemini delegation windows), handoff for continuing a long conversation in a fresh Claude session, controller for supervising other Claude windows (watch, answer, compact, coordinate merges), illbeback/imback for the human-driven controller compaction handshake, and an opinionated tmux.conf + plugin set.",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "author": {
     "name": "Alejandro Serna Borja",
     "email": "alxlenc@users.noreply.github.com"

@@ -2,18 +2,25 @@
 # Install tmux-claude dotfiles: config, scripts, and third-party plugins.
 #
 # What it does:
-#   - Symlinks tmux.conf to ~/.config/tmux/tmux.conf (backs up any existing file)
-#   - Symlinks helper scripts into ~/.tmux/scripts/
-#   - Installs tmux-agent-indicator (files + Claude hooks in ~/.claude/settings.json)
-#   - Image paste (prefix + I) ships as ~/.tmux/scripts/paste-image.sh (symlinked above)
+#   - Installs tmux.conf to ~/.config/tmux/tmux.conf (backs up any existing file)
+#   - Installs helper scripts into ~/.tmux/scripts/
+#   - Installs the vendored tmux-agent-indicator (files + Claude hooks in
+#     ~/.claude/settings.json) — pinned in vendor/, no network fetch
+#   - Image paste (prefix + I) ships as ~/.tmux/scripts/paste-image.sh (installed above)
 #   - Warns (without touching) if a legacy ~/.tmux.conf exists that tmux will now ignore
+#
+# Config and scripts are copied, not symlinked: this script ships inside a
+# versioned Claude plugin-cache directory that is replaced on every plugin
+# update, so symlinks into it dangle after a version bump. Copies keep
+# working; re-run install.sh after a plugin update to pick up changes.
 #
 # Flags:
 #   --no-hooks   Skip Claude hook installation (agent-indicator still installed).
+#   --symlink    Symlink instead of copy (for development checkouts that don't move).
 #
-# Re-running is safe: symlinks are refreshed, plugin checkouts are `git pull`-ed,
-# existing real files are backed up to <path>.bak.<timestamp>, and hook merging
-# is idempotent (deduplicates itself).
+# Re-running is safe: up-to-date copies are left alone, changed files are
+# backed up to <path>.bak.<timestamp>, and hook merging is idempotent
+# (deduplicates itself).
 
 set -euo pipefail
 
@@ -21,11 +28,13 @@ BASE_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 INSTALL_HOOKS=true
+LINK_MODE=false
 for arg in "$@"; do
     case "$arg" in
         --no-hooks) INSTALL_HOOKS=false ;;
+        --symlink) LINK_MODE=true ;;
         -h|--help)
-            sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *) echo "Unknown flag: $arg" >&2; exit 1 ;;
@@ -43,34 +52,22 @@ backup_if_regular() {
     fi
 }
 
-link() {
+install_file() {
     local src="$1" dst="$2"
     mkdir -p "$(dirname "$dst")"
-    backup_if_regular "$dst"
-    ln -s "$src" "$dst"
-    echo "  linked: $dst -> $src"
-}
-
-clone_or_update() {
-    local repo="$1" dst="$2" pin="${3:-}"
-    if [ -d "$dst/.git" ]; then
-        if [ -n "$pin" ]; then
-            echo "  pinned: $dst @ ${pin:0:12}"
-            git -C "$dst" fetch --quiet origin
-            git -C "$dst" checkout --quiet "$pin"
-        else
-            echo "  update: $dst"
-            git -C "$dst" pull --ff-only --quiet
-        fi
-    else
-        echo "  clone:  $repo -> $dst"
-        mkdir -p "$(dirname "$dst")"
-        git clone --quiet "$repo" "$dst"
-        if [ -n "$pin" ]; then
-            git -C "$dst" checkout --quiet "$pin"
-            echo "  pinned: @ ${pin:0:12}"
-        fi
+    if [ "$LINK_MODE" = true ]; then
+        backup_if_regular "$dst"
+        ln -s "$src" "$dst"
+        echo "  linked: $dst -> $src"
+        return
     fi
+    if [ -f "$dst" ] && [ ! -L "$dst" ] && cmp -s "$src" "$dst"; then
+        echo "  ok:     $dst (up to date)"
+        return
+    fi
+    backup_if_regular "$dst"
+    cp -p "$src" "$dst"
+    echo "  copied: $dst <- $src"
 }
 
 check_legacy_tmux_conf() {
@@ -148,11 +145,11 @@ check_clipboard_tool() {
 }
 
 echo "==> tmux config"
-link "$BASE_DIR/config/tmux.conf" "$HOME/.config/tmux/tmux.conf"
+install_file "$BASE_DIR/config/tmux.conf" "$HOME/.config/tmux/tmux.conf"
 
 echo "==> tmux scripts"
 for script in "$BASE_DIR"/scripts/*.sh; do
-    link "$script" "$HOME/.tmux/scripts/$(basename "$script")"
+    install_file "$script" "$HOME/.tmux/scripts/$(basename "$script")"
 done
 
 echo "==> tmux-agent-indicator (plugin + Claude hooks)"
@@ -161,12 +158,12 @@ if [ "$INSTALL_HOOKS" = false ]; then
     AGENT_INSTALLER_ARGS+=(--no-claude)
     echo "  --no-hooks: skipping Claude settings.json hook setup"
 fi
-if ! command -v curl >/dev/null 2>&1; then
-    echo "  ERROR: curl is required to install tmux-agent-indicator. Install curl and re-run." >&2
+if [ "$INSTALL_HOOKS" = true ] && ! command -v python3 >/dev/null 2>&1; then
+    echo "  ERROR: python3 is required to merge Claude hooks into ~/.claude/settings.json." >&2
+    echo "         Install python3 or re-run with --no-hooks." >&2
     exit 1
 fi
-curl -fsSL https://raw.githubusercontent.com/accessd/tmux-agent-indicator/566dda63be1f38efe40528c90c6076a589051df8/install.sh \
-    | bash -s -- "${AGENT_INSTALLER_ARGS[@]}"
+bash "$BASE_DIR/vendor/tmux-agent-indicator/install.sh" "${AGENT_INSTALLER_ARGS[@]}" </dev/null
 
 echo "==> clipboard image paste"
 check_clipboard_tool
