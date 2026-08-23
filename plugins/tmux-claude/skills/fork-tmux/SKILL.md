@@ -21,6 +21,7 @@ ENABLE_GEMINI_CLI: true
 ENABLE_CODEX: true
 ENABLE_SESSION_FORK: true
 WINDOW_MODE: ${user_config.window_mode}
+CODEX_MODEL: ${user_config.codex_model}
 
 ### WINDOW_MODE — YOLO vs CHICKEN
 
@@ -30,6 +31,14 @@ WINDOW_MODE: ${user_config.window_mode}
 - **CHICKEN** — omit that flag so the window keeps its normal permission/approval prompts.
 
 Resolution order: explicit request wording ("safe window", "with permissions" → CHICKEN; "yolo", "dangerously" → YOLO) **beats** WINDOW_MODE. If WINDOW_MODE is anything other than `CHICKEN` — including blank or an unsubstituted `${...}` placeholder — treat it as YOLO. Apply this when executing any agent cookbook below; the cookbook examples show the YOLO form.
+
+### CODEX_MODEL — which model a delegated codex window runs
+
+`CODEX_MODEL` (plugin user config, same `/plugin` → tmux-claude → configure screen) is passed through as `codex -m <CODEX_MODEL>`. Blank, absent, or an unsubstituted `${...}` placeholder means **omit `-m` entirely** and let codex fall back to the default in the user's `~/.codex/config.toml` — never invent a model name to fill the gap.
+
+Resolution order: an explicitly requested model in the user's wording ("fast"/"spark" → `FAST_MODEL`, or a model they name outright) **beats** CODEX_MODEL, which in turn beats the codex config default.
+
+The knob exists because the useful model changes far faster than this plugin does. It is deliberately not a hardcoded name in any cookbook: a model id baked into skill prose is wrong within a release or two, and wrong in a way nobody notices until a window silently runs on something else.
 
 ## Requirements
 

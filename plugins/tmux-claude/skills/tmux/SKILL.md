@@ -199,13 +199,17 @@ codex --yolo -- '<prompt>'         # interactive TUI — pane/window stays open 
 codex exec --yolo -- '<prompt>'    # headless — runs to completion and exits
 ```
 
+**Model:** the plugin's `codex_model` user config (current value: `${user_config.codex_model}`) is passed as `-m <model>` — `codex -m <model> --yolo -- '<prompt>'`. When it is blank, absent, or still an unsubstituted `${...}` placeholder, **omit `-m` entirely** so codex falls back to the default in the user's `~/.codex/config.toml`; do not invent a model name to fill the gap. A model the user names in the request beats the config. The knob exists because the useful model turns over much faster than this plugin does, and a model id baked into skill prose goes stale in a way nobody notices until a window is quietly running on the wrong one.
+
 `--yolo` (alias for `--dangerously-bypass-approvals-and-sandbox`) auto-approves every action with no sandbox; the `--` is mandatory so flag-like text in the prompt isn't parsed as codex options. Codex has no `--name` flag, so the slug goes only on the tmux handle: derive it like the Claude convention above but prefix with `codex-`.
 
 | User request | Invocation |
 |---|---|
-| "split pane with codex to fix the tests" | `split horizontal "codex --yolo -- 'Fix the failing tests; done when the suite passes'"` |
-| "new window with codex to review PR 42" | `window-new -n codex-review-pr "codex --yolo -- 'Review PR 42 and leave feedback'"` |
-| "send a codex task to window @3" | `send -f /tmp/p.txt -p "codex --yolo --" -t @3` |
+| "split pane with codex to fix the tests" | `split horizontal "codex -m <model> --yolo -- 'Fix the failing tests; done when the suite passes'"` |
+| "new window with codex to review PR 42" | `window-new -n codex-review-pr "codex -m <model> --yolo -- 'Review PR 42 and leave feedback'"` |
+| "send a codex task to window @3" | `send -f /tmp/p.txt -p "codex -m <model> --yolo --" -t @3` |
+
+(`-m <model>` is the resolved `codex_model` above; drop the flag when it resolves to blank.)
 
 **Trust prompt:** in a directory codex hasn't seen before, it shows a one-time "Do you trust the contents of this directory?" prompt even in YOLO mode. After launching, `read` the pane; if the prompt is showing, accept it with `send "C-m" -t <target> --no-enter` ("Yes, continue" is preselected).
 
