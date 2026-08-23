@@ -191,7 +191,7 @@ Every brief is standalone (a compacted or fresh worker has no memory of prior tu
 
 ### codex vs claude workers
 
-- **codex** for well-scoped coding. No memory → briefs must be fully self-contained. Its composer often **won't submit a long multi-line paste** (it inserts newlines) — so write the brief to a file and send a **short single-line** pointer: "Read `<path>` in full and execute it, honoring every constraint." (`Ctrl+C` clears a stuck composer without quitting codex.)
+- **codex** for well-scoped coding — prefer it over a claude worker for pure-backend tasks, and launch it with the model from the plugin's `codex_model` user config (`codex -m <model> --yolo -- '…'`; omit `-m` when that config is blank). No memory → briefs must be fully self-contained. Its composer often **won't submit a long multi-line paste** (it inserts newlines) — so write the brief to a file and send a **short single-line** pointer: "Read `<path>` in full and execute it, honoring every constraint." (`Ctrl+C` clears a stuck composer without quitting codex.)
 - **claude** for judgment, investigation, and ambiguous work.
 
 ### Verify empirically, don't assert

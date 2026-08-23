@@ -4,7 +4,8 @@ Launch OpenAI Codex CLI in a new tmux window with a specific task, in YOLO mode 
 
 ## Variables
 
-DEFAULT_MODEL: (unset — uses the model from the user's `~/.codex/config.toml`)
+DEFAULT_MODEL: `CODEX_MODEL` (see SKILL.md Variables) — when blank, unset, or an unsubstituted
+`${...}` placeholder, pass no `-m` at all and let `~/.codex/config.toml` decide
 FAST_MODEL: gpt-5.3-codex-spark
 
 ## ⚠️ Critical: Correct CLI Syntax
@@ -33,7 +34,7 @@ codex chat -- 'task'              # ❌ no such subcommand
 2. Choose the mode:
    - **Default: interactive TUI** — `codex --yolo -- '<prompt>'`. The window stays open; the user can follow up inside it. No log file (TUI), but status tracking still works.
    - **Headless** (user says "headless", "exec", "fire and forget", or wants the output captured) — `codex exec --yolo -- '<prompt>'`. fork-tmux captures a log file and exit code in `/tmp/fork-tmux-status/`.
-3. Model: leave `-m` unset (user's config default). If the user says "fast" or "spark", add `-m gpt-5.3-codex-spark`.
+3. Model: pass `-m <CODEX_MODEL>` when that config value is non-blank; otherwise leave `-m` unset so codex uses the user's config default. If the user says "fast" or "spark", `-m gpt-5.3-codex-spark` wins over both. Never substitute a model name of your own invention.
 4. Prompt style: Codex works best with operator-style prompts — state the concrete task AND what "done" looks like (e.g., "Fix the failing tests; done when `pytest` exits 0").
 5. Run `fork_tmux.py fork` with the codex command, passing `--name` per the Window Naming rules in SKILL.md.
 6. **After forking, verify the window came up** — read the pane and accept the trust prompt if present (see below).
@@ -51,6 +52,9 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py fork --cwd /
 
 # Fast model
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py fork --name <task-slug> "codex -m gpt-5.3-codex-spark --yolo -- '<prompt>'"
+
+# Pinned model from the CODEX_MODEL user config (omit -m entirely when it is blank)
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/fork-tmux/scripts/fork_tmux.py fork --name <task-slug> "codex -m <CODEX_MODEL> --yolo -- '<prompt>'"
 ```
 
 ## First Run in a New Directory: Trust Prompt
