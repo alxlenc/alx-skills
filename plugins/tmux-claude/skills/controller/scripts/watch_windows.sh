@@ -18,10 +18,17 @@
 #   TMUX_PANES_PY     explicit path to the plugin's tmux_panes.py
 #
 # Threshold auto-detection: the same captured pane text that carries the
-# [NN.N%] context figure also carries the model name (e.g. "[Sonnet 4.6 [1m]]"
-# vs "[Opus 4.8]"). Capture is ANSI-stripped, so a literal "[1m]" can only be
-# the 1M-context model marker. 38% is right for a 1M window but trips
-# constantly on 200K models, hence the split.
+# [NN.N%] context figure also carries the model name. Capture is ANSI-stripped,
+# so neither marker below can be an escape sequence. 38% is right for a 1M
+# window but trips constantly on 200K models, hence the split.
+#
+# TWO spellings of the 1M marker are matched, because the status line has used
+# both: the older bracketed "[Sonnet 4.6 [1m]]" and the current parenthesised
+# "[Opus 5 (1M context)]". Matching only the first is what broke this: a 1M
+# window silently fell through to the 200K threshold and sat at 45% without ever
+# firing IDLE_HIGH, which reads exactly like a watcher that is working and has
+# nothing to report. A missed high-context event is SILENT, so this match is
+# deliberately tolerant — add the next spelling here rather than replacing one.
 #
 # Output (one line, then exit 0):
 #   ATTENTION <window-name> (<@id>): IDLE | IDLE_HIGH:<pct> | QUESTION | GONE
@@ -81,7 +88,7 @@ classify() {
   local thr
   if [ -n "$CTX_THRESHOLD" ]; then
     thr="$CTX_THRESHOLD"
-  elif printf '%s\n' "$txt" | grep -qiF '[1m]'; then
+  elif printf '%s\n' "$txt" | grep -qiE '\[1m\]|1m context'; then
     thr="$CTX_THRESHOLD_1M"
   else
     thr="$CTX_THRESHOLD_STD"
