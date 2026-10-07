@@ -45,9 +45,16 @@ _CLAUDE_PREFIXES = ("claude ", "claude'", 'claude"')
 
 _TUI_BINARIES = ("claude", "gemini", "codex", "vim", "nvim", "nano", "htop", "top")
 
+_SHELL_INTERPRETERS = {"bash", "sh", "zsh", "dash"}
+
 
 def _script_launches_tui(command: str) -> bool:
-    """Return True if the command is a shell script that invokes a known TUI binary."""
+    """Return True if the command is a shell script that invokes a known TUI binary.
+
+    Handles both direct script invocations (``/tmp/run.sh``) and interpreter-
+    prefixed commands (``bash /tmp/run.sh``).  The latter is common when callers
+    write long prompts to a temp file and wrap the launch in a shell script.
+    """
     try:
         parts = shlex.split(command)
     except ValueError:
@@ -55,7 +62,12 @@ def _script_launches_tui(command: str) -> bool:
     if not parts:
         return False
     script_path = parts[0]
-    if not os.path.isfile(script_path):
+    base = os.path.basename(script_path)
+    if base in _SHELL_INTERPRETERS:
+        if len(parts) < 2 or not os.path.isfile(parts[1]):
+            return False
+        script_path = parts[1]
+    elif not os.path.isfile(script_path):
         return False
     try:
         with open(script_path) as f:
@@ -63,7 +75,6 @@ def _script_launches_tui(command: str) -> bool:
     except OSError:
         return False
     for binary in _TUI_BINARIES:
-        # Match the binary at a word boundary (start of line, after whitespace, or after exec)
         if re.search(r'(?:^|[\s;|&]|exec\s+)' + re.escape(binary) + r'(?:\s|$|["\'])', content, re.MULTILINE):
             return True
     return False
