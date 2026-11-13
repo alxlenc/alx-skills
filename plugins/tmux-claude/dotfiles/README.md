@@ -11,7 +11,7 @@ Opinionated tmux configuration that pairs with the `tmux` skill in this plugin.
 
 ## Plugins installed
 
-- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled. Installed from the vendored copy in `vendor/tmux-agent-indicator/` (pinned upstream commit, no network fetch — see `VENDORED.md` there for provenance and how to update).
+- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled. Installed from the vendored copy in `vendor/tmux-agent-indicator/` (pinned upstream commit, no network fetch — see `VENDORED.md` there for provenance and how to update). The vendored copy also garbage-collects its per-pane/window state from the tmux environment (hooks on `pane-exited`, `after-kill-pane`, `window-unlinked` plus a sweep on load); upstream leaks it. Test: `bash vendor/tmux-agent-indicator/scripts/tests/env-gc.test.sh`.
 (Image paste — prefix + `I` — is no longer a cloned plugin; it ships as the vendored `scripts/paste-image.sh`, see above.)
 
 ## Remote / SSH clipboard (prefix + `I` over SSH)

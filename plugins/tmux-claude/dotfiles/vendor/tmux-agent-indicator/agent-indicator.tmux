@@ -47,6 +47,21 @@ register_focus_hooks() {
     register_hook_once "after-select-pane" "$hook_command"
 }
 
+# Local addition (see VENDORED.md): upstream never removed the per-pane /
+# per-window TMUX_AGENT_* environment entries, so they leaked forever and bloated
+# the environment of every process the server spawns.
+register_gc_hooks() {
+    local gc_script="$CURRENT_DIR/scripts/env-gc.sh"
+    register_hook_once "pane-exited" "run-shell -b \"$gc_script pane \\\"#{hook_pane}\\\"\""
+    # after-kill-pane does not know which pane it killed (hook_pane is empty and
+    # pane_id is the surviving current pane), so it runs the dead-ids sweep.
+    register_hook_once "after-kill-pane" "run-shell -b \"$gc_script sweep\""
+    register_hook_once "window-unlinked" "run-shell -b \"$gc_script window \\\"#{hook_window}\\\"\""
+    # Startup sweep so a server restart or crash also self-heals. Background so
+    # it never delays tmux startup; it is a single tmux read plus a single write.
+    tmux run-shell -b "$gc_script sweep"
+}
+
 main() {
     tmux set-environment -g TMUX_AGENT_INDICATOR_DIR "$CURRENT_DIR"
     update_tmux_option "status-right"
@@ -56,6 +71,7 @@ main() {
     update_tmux_option "@minimal-tmux-status-right-extra"
     update_tmux_option "@minimal-tmux-status-left-extra"
     register_focus_hooks
+    register_gc_hooks
     local session_script="$CURRENT_DIR/scripts/session-changed.sh"
     register_hook_once "client-session-changed" "run-shell \"$session_script\""
 }
