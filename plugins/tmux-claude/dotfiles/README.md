@@ -11,8 +11,48 @@ Opinionated tmux configuration that pairs with the `tmux` skill in this plugin.
 
 ## Plugins installed
 
-- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled. Installed from the vendored copy in `vendor/tmux-agent-indicator/` (pinned upstream commit, no network fetch — see `VENDORED.md` there for provenance and how to update). The vendored copy also garbage-collects its per-pane/window state from the tmux environment (hooks on `pane-exited`, `after-kill-pane`, `window-unlinked` plus a sweep on load); upstream leaks it. Test: `bash vendor/tmux-agent-indicator/scripts/tests/env-gc.test.sh`.
+- [`accessd/tmux-agent-indicator`](https://github.com/accessd/tmux-agent-indicator) — visual feedback for AI agent states. `running` / `needs-input` / `done` are surfaced in pane border colour and window-title background. Claude hooks are installed automatically so the transitions are event-driven, not polled. Installed from the vendored copy in `vendor/tmux-agent-indicator/` (pinned upstream commit, no network fetch — see `VENDORED.md` there for provenance and how to update). The vendored copy also garbage-collects its per-pane/window state from the tmux environment (hooks on `pane-exited`, `after-kill-pane`, `window-unlinked`, and `session-created`, plus a sweep on reload); upstream leaks it. When config loads before any session exists, the first `session-created` triggers the startup sweep. Test: `bash vendor/tmux-agent-indicator/scripts/tests/env-gc.test.sh`.
 (Image paste — prefix + `I` — is no longer a cloned plugin; it ships as the vendored `scripts/paste-image.sh`, see above.)
+
+The collector removes only absent pane/window IDs with alphanumeric or underscore
+state suffixes. Live panes, retained `remain-on-exit` panes, linked windows, and
+malformed names are preserved. `remain-on-exit` emits `pane-died`; it keeps the
+pane listed until removal. Empty servers and dead sockets are quiet no-ops. Tests
+use a scratch HOME and private sockets under a scratch `TMUX_TMPDIR`; a guard
+rejects default-server fallback and sockets outside that directory.
+
+### Rolling back environment GC
+
+Choose a revision before GC was introduced and restore the existing
+`vendor/tmux-agent-indicator/agent-indicator.tmux` from that revision. Both
+`scripts/env-gc.sh` and `scripts/tests/env-gc.test.sh` were **new files**: delete
+them from the checkout when rolling back; do not try to extract either from an
+older revision. The test file is not installed. For an installed copy, restore
+the bootstrap from the chosen revision and remove its `scripts/env-gc.sh` after
+removing the registered GC hooks. Keep the other plugin files and Claude hooks.
+
+Replacing the bootstrap does not unregister hooks from an already-running
+server. On each server you intentionally choose, inspect the four hook arrays
+and remove only indexed entries containing that installation's GC script path:
+
+```bash
+# Set these to the intended server and installation before running.
+socket=/path/to/chosen/tmux/socket
+gc_script=/path/to/chosen/tmux-agent-indicator/scripts/env-gc.sh
+for hook in pane-exited after-kill-pane window-unlinked session-created; do
+    while IFS= read -r row; do
+        [[ "$row" == *"$gc_script"* ]] || continue
+        indexed=${row%% *}
+        [[ "$indexed" =~ ^${hook}\[[0-9]+\]$ ]] || continue
+        tmux -S "$socket" set-hook -gu "$indexed"
+    done < <(tmux -S "$socket" show-hooks -g "$hook")
+done
+```
+
+Do not unset an entire hook array (for example, `set-hook -gu pane-exited`):
+unrelated hooks can share it. Reloading the restored bootstrap leaves the other
+entries intact. Already-collected stale environment variables need no migration
+or reconstruction; live state remains in place.
 
 ## Remote / SSH clipboard (prefix + `I` over SSH)
 

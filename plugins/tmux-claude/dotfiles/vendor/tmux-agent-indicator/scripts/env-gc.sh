@@ -8,7 +8,7 @@
 # whole block, slowing shell startup.
 #
 # Usage:
-#   env-gc.sh pane <%id>     unset that pane's variables, plus any other dead ids
+#   env-gc.sh pane <%id>     sweep dead ids after a pane event
 #                            (a bad/empty id falls back to sweep)
 #   env-gc.sh window <@id>   unset that window's variables if it is gone, plus any other dead ids
 #   env-gc.sh sweep          unset variables of every pane/window that no longer exists
@@ -17,7 +17,8 @@
 # panes destroyed by kill-window / kill-session, so window-unlinked is the only
 # hook that sees them go.
 #
-# Only TMUX_AGENT_PANE_<id>_* and TMUX_AGENT_WINDOW_<id>_* are ever touched.
+# Only TMUX_AGENT_PANE_<id>_* and TMUX_AGENT_WINDOW_<id>_* with alphanumeric /
+# underscore suffixes are ever touched. Malformed names are left alone.
 # SESSION_SEEN_*, LAST_SESSION, ACTIVE_PANE_*, INDICATOR_DIR, ANIMATION_* and the
 # variables of live panes/windows are left alone.
 #
@@ -49,10 +50,13 @@ trap 'rm -f "$cmds"' EXIT
 # Live ids are tagged "P %n" / "W @n"; environment lines are NAME=value. The
 # three reads run back to back inside the server, so the live set and the
 # variable list are a consistent snapshot.
-tmux list-panes -a -F 'P #{pane_id}' \; \
+# No sessions yet, or the invoking server has gone away: do nothing. In
+# particular, never interpret an incomplete/failed read as an empty live set.
+snapshot=$(tmux list-panes -a -F 'P #{pane_id}' \; \
      list-windows -a -F 'W #{window_id}' \; \
-     show-environment -g 2>/dev/null |
-awk -v mode="$mode" -v target="$target" '
+     show-environment -g 2>/dev/null) || exit 0
+printf '%s\n' "$snapshot" |
+awk '
     $1 == "P" && NF == 2 { livep[$2] = 1; next }
     $1 == "W" && NF == 2 { livew[$2] = 1; next }
     { envl[++n] = $0 }
@@ -60,19 +64,19 @@ awk -v mode="$mode" -v target="$target" '
         for (i = 1; i <= n; i++) {
             name = envl[i]
             sub(/=.*/, "", name)
-            if (name !~ /^TMUX_AGENT_(PANE_%|WINDOW_@)[0-9]+_/) continue
+            # This allowlist also makes the generated tmux command literal:
+            # no quotes, backslashes, formats, substitutions or separators.
+            if (name !~ /^TMUX_AGENT_(PANE_%|WINDOW_@)[0-9]+_[A-Za-z0-9_]+$/) continue
             id = name
             sub(/^TMUX_AGENT_(PANE|WINDOW)_/, "", id)
             sub(/_.*/, "", id)
             kind = substr(id, 1, 1)
             dead = (kind == "%") ? !(id in livep) : !(id in livew)
-            # Every mode removes ids that are gone. A pane event also removes
-            # its own pane even while it is still listed (remain-on-exit keeps a
-            # dead pane listed when pane-exited fires). A window event never
-            # removes a window that still exists: window-unlinked also fires
-            # when a window is unlinked from one session but linked in another.
-            hit = dead || (mode == "pane" && id == target)
-            if (hit) print "set-environment -gu \"" name "\""
+            # Hooks are hints to sweep, never proof that their target is gone.
+            # remain-on-exit fires pane-died and keeps the pane listed; retain
+            # its state until it is removed. Likewise, window-unlinked can
+            # refer to a window that is still linked into another session.
+            if (dead) print "set-environment -gu \"" name "\""
         }
     }' > "$cmds"
 
