@@ -57,9 +57,15 @@ register_gc_hooks() {
     # pane_id is the surviving current pane), so it runs the dead-ids sweep.
     register_hook_once "after-kill-pane" "run-shell -b \"$gc_script sweep\""
     register_hook_once "window-unlinked" "run-shell -b \"$gc_script window \\\"#{hook_window}\\\"\""
-    # Startup sweep so a server restart or crash also self-heals. Background so
-    # it never delays tmux startup; it is a single tmux read plus a single write.
-    tmux run-shell -b "$gc_script sweep"
+    # Config can load before the first session exists. Defer that startup sweep
+    # until session-created supplies a target; an eager run-shell would fail
+    # with "no current target". Also sweep on reload when a session exists.
+    register_hook_once "session-created" "run-shell -b \"$gc_script sweep\""
+    local session
+    session=$(tmux list-sessions -F '#{session_id}' 2>/dev/null | head -n 1)
+    if [ -n "$session" ]; then
+        tmux run-shell -b -t "$session" "$gc_script sweep"
+    fi
 }
 
 main() {
